@@ -3,190 +3,671 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>マイク確認テスト</title>
+<title>食事箋の入力（プロトタイプ）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif; margin: 16px; color: #22303c; background: #fff; line-height: 1.6; }
-  h1 { font-size: 20px; margin: 0 0 8px; }
-  p.sub { color: #5d6b78; margin: 0 0 16px; }
-  section { border: 1px solid #d9dfe5; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
-  h2 { font-size: 16px; margin: 0 0 8px; }
-  button { font: inherit; font-size: 17px; padding: 10px 18px; border-radius: 8px; border: 1px solid #22303c; background: #22303c; color: #fff; cursor: pointer; }
-  button:disabled { opacity: .5; }
-  .res { margin-top: 10px; padding: 8px 10px; background: #f4f6f8; border-radius: 6px; white-space: pre-wrap; min-height: 1.6em; }
-  .ok { color: #1f6f43; font-weight: 700; }
-  .ng { color: #b0322b; font-weight: 700; }
-  textarea { width: 100%; font: inherit; font-size: 17px; padding: 8px; box-sizing: border-box; }
+  :root {
+    --ink: #22303c; --sub: #5d6b78; --line: #d9dfe5; --bg: #f6f7f9; --card: #ffffff;
+    --accent: #2f5d7c; --accent-ink: #ffffff; --warn-bg: #fff3d6; --warn-line: #b98900;
+    --ng: #b0322b; --ng-bg: #fdecea; --ok: #1f6f43; --ok-bg: #e7f4ec; --chg: #fde8dc; --chg-line: #b05736;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 16px/1.65 "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif; color: var(--ink); background: var(--bg); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .band { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); padding: 6px 16px; font-size: 14px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 16px; }
+  .bar h1 { font-size: 18px; margin: 0 8px 0 0; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tabs button { border: 1px solid var(--line); background: var(--card); padding: 8px 16px; border-radius: 8px; font-weight: 700; }
+  .tabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .spacer { flex: 1; }
+  .who { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+  .who select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+  .menu-btn { border: 1px solid var(--line); background: var(--card); padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .page { display: none; } .page.on { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  h3 { font-size: 15px; margin: 12px 0 6px; }
+  .sub { color: var(--sub); font-size: 14px; margin: 4px 0; }
+  .users { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+  .user { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--card); text-align: left; }
+  .user.on { border: 2px solid var(--accent); background: #eef4f8; padding: 7px 9px; }
+  .user b { display: block; font-size: 16px; }
+  .user span { font-size: 13px; color: var(--sub); }
+  .btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 16px; }
+  .btn.sec { background: var(--card); color: var(--accent); }
+  .btn.ng { background: var(--ng); border-color: var(--ng); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 17px; background: #fff; }
+  .mic { border: 1px solid var(--accent); background: var(--card); color: var(--accent); border-radius: 999px; padding: 8px 16px; font-weight: 700; }
+  .mic.rec { background: var(--ng); border-color: var(--ng); color: #fff; }
+  .photo-prev { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }
+  .photo-prev img { max-width: 180px; max-height: 220px; border: 1px solid var(--line); border-radius: 6px; }
+  .note { background: var(--warn-bg); border-left: 4px solid var(--warn-line); padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 14px; }
+  .err { background: var(--ng-bg); border-left: 4px solid var(--ng); padding: 8px 12px; border-radius: 4px; margin: 8px 0; }
+  .okbox { background: var(--ok-bg); border-left: 4px solid var(--ok); padding: 8px 12px; border-radius: 4px; margin: 8px 0; }
+  .explain { font-size: 19px; font-weight: 700; margin: 4px 0 8px; }
+  .question { background: #eef4f8; border: 2px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+  .question p { margin: 0 0 8px; font-weight: 700; }
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .choices button { border: 1px solid var(--accent); background: var(--card); color: var(--accent); padding: 8px 14px; border-radius: 8px; font-weight: 700; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; color: var(--sub); font-size: 14px; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #f4f6f8; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; max-height: 320px; overflow: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  td { border: 1px solid #d9dfe5; padding: 4px 8px; vertical-align: top; word-break: break-all; }
-  td:first-child { width: 42%; background: #f8f9fa; }
+  th, td { border: 1px solid var(--line); padding: 4px 6px; text-align: center; vertical-align: middle; }
+  th { background: #f1f3f5; font-weight: 700; }
+  td.d { text-align: left; white-space: nowrap; }
+  td.no { color: var(--sub); background: #f4f4f4; }
+  td.chg { background: var(--chg); outline: 2px solid var(--chg-line); outline-offset: -2px; font-weight: 700; }
+  .tbl-wrap { overflow-x: auto; }
+  .req { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: var(--card); }
+  .req.new { border: 2px solid var(--accent); }
+  .req .meta { font-size: 13px; color: var(--sub); }
+  .badge { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-left: 6px; }
+  .badge.late { background: var(--ng-bg); color: var(--ng); border: 1px solid var(--ng); }
+  .badge.done { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); }
+  .badge.wait { background: #eef4f8; color: var(--accent); border: 1px solid var(--accent); }
+  .loading { display: none; align-items: center; gap: 10px; padding: 10px 0; color: var(--sub); }
+  .loading.on { display: flex; }
+  .spin { width: 20px; height: 20px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: s 1s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .modal { position: fixed; inset: 0; background: rgba(20,30,40,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal.on { display: flex; }
+  .modal .box { background: var(--card); border-radius: 12px; padding: 18px; max-width: 900px; width: 100%; max-height: 90vh; overflow: auto; }
+  .samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .samples button { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 8px; text-align: left; font-size: 14px; }
+  .samples button span { display: block; color: var(--sub); font-size: 12px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; display: none; z-index: 30; }
+  .toast.on { display: block; }
+  .small { font-size: 13px; color: var(--sub); }
+  input[type=text], input[type=password] { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+  @media (max-width: 640px) { main { padding: 10px; } .bar h1 { font-size: 16px; } .explain { font-size: 17px; } }
 </style>
 </head>
 <body>
-<h1>マイク確認テスト</h1>
-<p class="sub">GitHub Pages に置いた画面で、マイクと音声認識が使えるか、GAS とやり取りできるかを確かめます。上から順にボタンを押し、結果の画面を撮って共有してください。</p>
+<header>
+  <div class="band">プロトタイプ（動くサンプル）です。データはすべて架空です。AIは間違うことがあります。<b>実名の入った紙は撮らないでください。</b>データは開いた人全員で共有しています。</div>
+  <div class="bar">
+    <h1>食事箋の入力</h1>
+    <div class="tabs" id="tabs">
+      <button data-p="care" class="on">介護職員</button>
+      <button data-p="kitchen">厨房</button>
+      <button data-p="glossary">用語集</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="who">あなた：<select id="me"></select></div>
+    <button class="menu-btn" id="openSettings">設定</button>
+  </div>
+</header>
 
-<section>
-  <h2>1. マイクを使えるか（録音の許可）</h2>
-  <button id="btnMic">マイクを試す</button>
-  <div class="res" id="resMic"></div>
-</section>
+<main>
+  <!-- 介護職員 -->
+  <section class="page on" id="care">
+    <div class="card">
+      <h2>1. だれの食事ですか</h2>
+      <div class="users" id="userList"></div>
+    </div>
 
-<section>
-  <h2>2. 音声認識（話した言葉を文字にする）</h2>
-  <button id="btnSr">話してみる</button>
-  <div class="res" id="resSr"></div>
-</section>
+    <div class="card">
+      <h2>2. 変更を伝える（話す・写真・文字）</h2>
+      <div class="row">
+        <button class="mic" id="micBtn">🎤 話す</button>
+        <button class="btn sec" id="sampleBtn">見本の食事箋から選ぶ</button>
+        <label class="btn sec" for="camera">写真を撮る・選ぶ</label>
+        <input type="file" id="camera" accept="image/*" capture="environment" hidden>
+      </div>
+      <p class="sub" id="micHint"></p>
+      <p class="note">カメラで撮るときは、<b>実名の入った紙は撮らないでください。</b>撮った写真は外部のAIに送られます（保存はしません）。</p>
+      <textarea id="inputText" rows="3" placeholder="例：明日の夕方から外泊がなくなったので、夕食から食べます"></textarea>
+      <div class="photo-prev" id="photoPrev" hidden>
+        <img id="photoImg" alt="入れた写真">
+        <div>
+          <div id="photoLabel" class="sub"></div>
+          <button class="btn sec" id="photoClear">写真を外す</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="interpretBtn">AIに読み取ってもらう</button>
+      </div>
+      <div class="loading" id="careLoading"><div class="spin"></div><span>AIが今の予定と照らして考えています…（10〜40秒ほど）</span></div>
+      <div id="careError"></div>
+    </div>
 
-<section>
-  <h2>3. 予備：キーボードの音声入力</h2>
-  <p class="sub">この欄を押し、キーボードのマイクのキーで話してください。</p>
-  <textarea id="kb" rows="3" placeholder="ここに話した言葉が入ります"></textarea>
-</section>
+    <div class="card" id="planCard" hidden>
+      <h2>3. AIの読み取り（変更案）</h2>
+      <div id="planBody"></div>
+    </div>
+  </section>
 
+  <!-- 厨房 -->
+  <section class="page" id="kitchen">
+    <div class="card">
+      <div class="row">
+        <h2 style="margin:0">届いた依頼</h2>
+        <div class="spacer"></div>
+        <span class="small" id="lastCheck"></span>
+        <button class="btn sec" id="refreshBtn">今すぐ確かめる</button>
+      </div>
+      <p class="sub">この画面を開いている間は、30秒ごとに新しい依頼を確かめます。</p>
+      <div id="reqList"></div>
+      <details><summary>確認済みの依頼</summary><div id="doneList"></div></details>
+    </div>
+    <div class="card">
+      <h2>食数（名前のある10人＋ほか <span id="otherCount"></span> 人分）</h2>
+      <p class="sub">色の付いたところは、直前に確認した依頼で変わったところです。</p>
+      <div class="tbl-wrap" id="countTable"></div>
+    </div>
+    <div class="card">
+      <div class="row"><h2 style="margin:0">利用者ごとの予定表</h2><select id="schedUser"></select></div>
+      <div class="tbl-wrap" id="schedTable" style="margin-top:8px"></div>
+    </div>
+  </section>
 
-<section>
-  <h2>5. GAS とやり取りできるか</h2>
-  <p class="sub">2 で聞き取った文（無ければ 3 の欄の文）を GAS に送り、そのまま返ってくるかを見ます。</p>
-  <button id="btnGas">GAS に送る</button>
-  <div class="res" id="resGas"></div>
-</section>
+  <!-- 用語集 -->
+  <section class="page" id="glossary">
+    <div class="card">
+      <h2>用語集</h2>
+      <p class="sub">施設ごとの言い方です。AIが知らない言葉を聞き返し、答えが「候補」になります。施設の職員ならだれでも承認でき、承認した言葉だけが次からAIに渡ります。</p>
+      <div id="glossaryList"></div>
+    </div>
+  </section>
+</main>
 
-<section>
-  <h2>4. 環境の情報</h2>
-  <table id="env"></table>
-</section>
+<!-- 合言葉 -->
+<div class="modal" id="passModal">
+  <div class="box" style="max-width:420px">
+    <h2>合言葉を入れてください</h2>
+    <p class="sub">このプロトタイプを使うための合言葉です。</p>
+    <input type="password" id="passInput" autocomplete="off">
+    <div id="passError"></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="passOk">はじめる</button></div>
+  </div>
+</div>
+
+<!-- 見本 -->
+<div class="modal" id="sampleModal">
+  <div class="box">
+    <div class="row"><h2 style="margin:0">見本の食事箋（氏名は消してあります）</h2><div class="spacer"></div><button class="btn sec" id="sampleClose">閉じる</button></div>
+    <p class="sub">見本を選ぶと、紙の提出日を今日とみなして日付をずらして読みます。氏名は写っていないので、利用者は先に選んでください。</p>
+    <div class="samples" id="sampleList"></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="modal" id="settingsModal">
+  <div class="box" style="max-width:520px">
+    <div class="row"><h2 style="margin:0">設定</h2><div class="spacer"></div><button class="btn sec" id="settingsClose">閉じる</button></div>
+    <h3>最初の状態に戻す</h3>
+    <p class="sub">予定・依頼・用語集をすべて消し、今日から2週間の最初の状態に作り直します。開いている全員に効きます。</p>
+    <button class="btn ng" id="resetBtn">最初の状態に戻す</button>
+    <h3>合言葉</h3>
+    <button class="btn sec" id="passReset">合言葉を入れ直す</button>
+    <h3>AI</h3>
+    <p class="sub" id="aiInfo"></p>
+    <h3>ほかのページ</h3>
+    <p class="sub"><a href="mic-test.html">マイク確認テスト</a></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-  function show(id, ok, text) {
-    var el = document.getElementById(id);
-    el.innerHTML = '';
-    var b = document.createElement('span');
-    b.className = ok ? 'ok' : 'ng';
-    b.textContent = ok ? '使えました' : '使えませんでした';
-    el.appendChild(b);
-    el.appendChild(document.createTextNode('\n' + text));
-  }
+'use strict';
+// GAS のやり取りの口（個人のアカウント。版を上げても URL は変わらない）
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbx2t8WGcKQMOYhM5AM-IGgfU_oOtMKy5gi0U9WAZ17PHU-DNBNIhi0I_4J-tjXxo5KL/exec';
+var POLL_SECONDS = 30;
 
-  // 1. getUserMedia でマイクの許可を求める
-  document.getElementById('btnMic').addEventListener('click', function () {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      show('resMic', false, 'このブラウザ（またはこの枠の中）には、マイクを使う機能がありません。');
-      return;
-    }
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-      var tracks = stream.getAudioTracks();
-      show('resMic', true, 'マイク：' + (tracks[0] ? tracks[0].label : '（名前なし）'));
-      tracks.forEach(function (t) { t.stop(); });
-    }).catch(function (err) {
-      show('resMic', false, 'エラー：' + err.name + '\n' + err.message);
-    });
+var S = {                       // 画面の状態
+  passphrase: '', data: null, userId: '', image: null, sampleId: '', inputMethod: '文',
+  draftId: '', result: null, lastChanged: [], polling: null, page: 'care', seenRequests: {}
+};
+
+// ---------- 小さな道具 ----------
+function $(id) { return document.getElementById(id); }
+function el(tag, attrs, kids) {
+  var e = document.createElement(tag);
+  Object.keys(attrs || {}).forEach(function (k) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'text') e.textContent = attrs[k];
+    else if (k.indexOf('on') === 0) e.addEventListener(k.slice(2), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
   });
+  (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return e;
+}
+function store(key, val) { try { if (val === undefined) return localStorage.getItem(key); if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (e) { return null; } }
+function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('on'); setTimeout(function () { t.classList.remove('on'); }, 3500); }
+function newDraftId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'd' + Date.now() + Math.random().toString(16).slice(2); }
+function wd(dateStr) { return '日月火水木金土'.charAt(new Date(dateStr + 'T00:00:00+09:00').getDay()); }
+function md(dateStr) { var p = dateStr.split('-'); return Number(p[1]) + '/' + Number(p[2]); }
+function userById(id) { return (S.data.users || []).find(function (u) { return u['利用者ID'] === id; }); }
+function showError(boxId, msg) { var b = $(boxId); b.innerHTML = ''; if (msg) b.appendChild(el('div', { class: 'err', text: msg })); }
 
-  // 2. ブラウザ標準の音声認識（Web Speech API）
-  document.getElementById('btnSr').addEventListener('click', function () {
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      show('resSr', false, 'このブラウザには音声認識の機能がありません。');
-      return;
-    }
-    var sr = new SR();
-    sr.lang = 'ja-JP';
-    sr.interimResults = true;
-    sr.maxAlternatives = 1;
-    var btn = document.getElementById('btnSr');
+// GAS を呼ぶ。text/plain で送り、ブラウザの事前の問い合わせを起こさない
+function api(action, payload) {
+  var body = Object.assign({ action: action, passphrase: S.passphrase }, payload || {});
+  return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+    .then(function (res) { if (!res.ok) throw new Error('GAS の呼び出しに失敗しました（HTTP ' + res.status + '）'); return res.json(); })
+    .then(function (data) { if (!data.ok) throw new Error(data.error || '不明なエラー'); return data; });
+}
+
+// ---------- 合言葉・初めの読み込み ----------
+function askPass(msg) {
+  $('passModal').classList.add('on');
+  showError('passError', msg || '');
+  setTimeout(function () { $('passInput').focus(); }, 50);
+}
+$('passOk').addEventListener('click', function () {
+  S.passphrase = $('passInput').value.trim();
+  if (!S.passphrase) return;
+  $('passOk').disabled = true;
+  api('getState').then(function (data) {
+    store('meal-slip-pass', S.passphrase);
+    $('passModal').classList.remove('on');
+    applyState(data);
+  }).catch(function (err) { showError('passError', err.message); })
+    .then(function () { $('passOk').disabled = false; });
+});
+$('passInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('passOk').click(); });
+
+function start() {
+  S.passphrase = store('meal-slip-pass') || '';
+  if (!S.passphrase) { askPass(); return; }
+  api('getState').then(applyState).catch(function (err) {
+    if (/合言葉/.test(err.message)) { store('meal-slip-pass', null); askPass(err.message); }
+    else toast(err.message);
+  });
+}
+
+function applyState(data) {
+  S.data = data;
+  renderMe(); renderUsers(); renderKitchen(); renderGlossary();
+  $('aiInfo').textContent = '呼び出し口：' + data.provider + '／モデル：' + data.model;
+  $('otherCount').textContent = data.otherCount;
+}
+
+// ---------- 画面の切り替え ----------
+$('tabs').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  S.page = b.dataset.p;
+  document.querySelectorAll('#tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+  document.querySelectorAll('.page').forEach(function (x) { x.classList.toggle('on', x.id === S.page); });
+  if (S.page === 'kitchen') { refresh(); startPolling(); } else stopPolling();
+  if (S.page === 'glossary') refresh();
+});
+
+// 「あなた」（入れた人・承認した人）
+function renderMe() {
+  var sel = $('me'); var cur = store('meal-slip-me') || '';
+  sel.innerHTML = '';
+  S.data.staff.forEach(function (s) { sel.appendChild(el('option', { value: s['氏名'], text: s['氏名'] })); });
+  if (cur) sel.value = cur;
+}
+$('me').addEventListener('change', function () { store('meal-slip-me', $('me').value); });
+
+// ---------- 介護職員 ----------
+function renderUsers() {
+  var box = $('userList'); box.innerHTML = '';
+  S.data.users.forEach(function (u) {
+    var b = el('button', { class: 'user' + (u['利用者ID'] === S.userId ? ' on' : ''), onclick: function () { S.userId = u['利用者ID']; renderUsers(); } }, [
+      el('b', { text: u['氏名'] }),
+      el('span', { text: u['フロア'] + '・' + u['利用区分'] + (u['利用終了日'] && u['利用終了日'] < S.data.today ? '・利用終了' : '') })
+    ]);
+    box.appendChild(b);
+  });
+}
+
+// 声（ブラウザ標準の音声認識）
+var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+var activeRec = null;
+function setupMic(button, target, onStart) {
+  if (!Rec) {
+    button.hidden = true;
+    return false;
+  }
+  button.addEventListener('click', function () {
+    if (activeRec) { activeRec.stop(); return; }
+    var rec = new Rec(); rec.lang = 'ja-JP'; rec.interimResults = true; rec.continuous = true;
+    var base = target.value ? target.value + ' ' : '';
     var finalText = '';
-    btn.disabled = true;
-    document.getElementById('resSr').textContent = '聞き取り中です。話してください…';
-    sr.onresult = function (ev) {
+    rec.onresult = function (ev) {
       var interim = '';
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
-        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
-        else interim += ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript;
       }
-      document.getElementById('resSr').textContent = '聞き取り中：' + finalText + interim;
+      target.value = base + finalText + interim;
     };
-    sr.onerror = function (ev) {
-      show('resSr', false, 'エラー：' + ev.error + (ev.message ? '\n' + ev.message : ''));
-      btn.disabled = false;
+    rec.onerror = function (ev) { toast('音声認識のエラー：' + ev.error); };
+    rec.onend = function () { activeRec = null; button.classList.remove('rec'); button.textContent = '🎤 話す'; };
+    rec.start(); activeRec = rec;
+    button.classList.add('rec'); button.textContent = '■ 止める';
+    if (onStart) onStart();
+  });
+  return true;
+}
+if (!setupMic($('micBtn'), $('inputText'), function () { S.inputMethod = '声'; })) {
+  $('micHint').textContent = 'このブラウザでは画面のマイクが使えません。文字の欄を押し、キーボードのマイクで話してください。';
+}
+
+// 写真（見本・カメラ）
+$('sampleBtn').addEventListener('click', function () {
+  var list = $('sampleList'); list.innerHTML = '';
+  S.data.samples.forEach(function (s) {
+    list.appendChild(el('button', { onclick: function () { pickSample(s); } }, [s.label, el('span', { text: '提出日 ' + s.submittedDate })]));
+  });
+  $('sampleModal').classList.add('on');
+});
+$('sampleClose').addEventListener('click', function () { $('sampleModal').classList.remove('on'); });
+function pickSample(s) {
+  $('sampleModal').classList.remove('on');
+  api('getSample', { sampleId: s.id }).then(function (d) {
+    S.sampleId = s.id; S.image = null; S.inputMethod = '見本';
+    showPhoto('data:' + d.mediaType + ';base64,' + d.data, '見本：' + s.label + '（提出日 ' + s.submittedDate + ' を今日とみなして読みます）');
+  }).catch(function (err) { toast(err.message); });
+}
+$('camera').addEventListener('change', function () {
+  var f = $('camera').files[0]; if (!f) return;
+  shrink(f, 1400, 0.8).then(function (dataUrl) {
+    S.image = { mediaType: 'image/jpeg', data: dataUrl.split(',')[1] }; S.sampleId = ''; S.inputMethod = '写真';
+    showPhoto(dataUrl, '撮った写真（' + f.name + '）');
+  }).catch(function (err) { toast('写真を読めませんでした：' + err.message); });
+  $('camera').value = '';
+});
+function shrink(file, longSide, quality) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image(); var url = URL.createObjectURL(file);
+    img.onload = function () {
+      var r = Math.min(1, longSide / Math.max(img.width, img.height));
+      var c = document.createElement('canvas'); c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', quality));
     };
-    sr.onend = function () {
-      btn.disabled = false;
-      if (finalText) show('resSr', true, '聞き取った文：' + finalText);
-      else if (document.getElementById('resSr').textContent.indexOf('エラー') < 0) {
-        show('resSr', false, '文字になりませんでした（何も聞き取れなかったか、すぐに止められました）。');
-      }
-    };
-    try {
-      sr.start();
-    } catch (err) {
-      show('resSr', false, 'エラー：' + err.name + '\n' + err.message);
-      btn.disabled = false;
-    }
+    img.onerror = function () { reject(new Error('画像として読めません')); };
+    img.src = url;
+  });
+}
+function showPhoto(src, label) { $('photoImg').src = src; $('photoLabel').textContent = label; $('photoPrev').hidden = false; }
+$('photoClear').addEventListener('click', function () { S.image = null; S.sampleId = ''; $('photoPrev').hidden = true; });
+
+// AIに読み取ってもらう（初回）
+$('interpretBtn').addEventListener('click', function () {
+  showError('careError', '');
+  if (!S.userId) { showError('careError', '先に「だれの食事ですか」で利用者を選んでください'); return; }
+  var text = $('inputText').value.trim();
+  if (!text && !S.image && !S.sampleId) { showError('careError', '話すか、写真を入れるか、文字を入れてください'); return; }
+  if (S.inputMethod === '文' && text && !S.image && !S.sampleId) S.inputMethod = '文';
+  S.draftId = newDraftId();
+  callInterpret({ text: text }, false);
+});
+
+function callInterpret(extra, isCorrection) {
+  var payload = Object.assign({
+    userId: S.userId, draftId: S.draftId, inputMethod: S.inputMethod,
+    text: $('inputText').value.trim(), sampleId: S.sampleId || '', image: S.image
+  }, extra);
+  if (isCorrection && S.result) payload.previousPlan = { masked: S.result.masked };
+  $('careLoading').classList.add('on');
+  $('interpretBtn').disabled = true;
+  document.querySelectorAll('#planBody button').forEach(function (b) { b.disabled = true; });
+  return api('interpret', payload).then(function (r) {
+    var prev = S.result;
+    S.result = r;
+    renderPlan(prev);
+  }).catch(function (err) {
+    showError('careError', err.message);
+    document.querySelectorAll('#planBody button').forEach(function (b) { b.disabled = false; });
+  }).then(function () {
+    $('careLoading').classList.remove('on');
+    $('interpretBtn').disabled = false;
+  });
+}
+
+function opText(op) {
+  var range = md(op.startDate) + '（' + wd(op.startDate) + '）' + op.startMeal + (op.endDate ? ' 〜 ' + md(op.endDate) + '（' + wd(op.endDate) + '）' + op.endMeal : ' から（終わりは未定）');
+  var meals = op.meals.length === 4 ? 'すべての食事' : op.meals.join('・') + 'だけ';
+  var s = op.kind + '：' + range + '、' + meals;
+  if (op.kind === '形態や量を変える') s += '、' + op.item + 'を「' + op.newValue + '」に';
+  if (op.reason) s += '（' + op.reason + '）';
+  if (op.cancelRequestId) s += ' ／ 取り消す依頼 ' + op.cancelRequestId;
+  return s;
+}
+
+function renderPlan(prev) {
+  var r = S.result; var p = r.plan; var body = $('planBody'); body.innerHTML = '';
+  $('planCard').hidden = false;
+  var u = userById(p.userId);
+  body.appendChild(el('div', { class: 'sub', text: (u ? u['氏名'] + '様' : '') + ' ／ ' + (S.inputMethod) }));
+  body.appendChild(el('div', { class: 'explain', text: p.explanation }));
+  if (p.operations.length) {
+    var ul = el('ul', {});
+    p.operations.forEach(function (op) { ul.appendChild(el('li', { text: opText(op) })); });
+    body.appendChild(ul);
+  }
+  body.appendChild(el('p', { class: 'sub', text: 'そう読んだ理由：' + p.rationale }));
+  r.check.errors.forEach(function (m) { body.appendChild(el('div', { class: 'err', text: m })); });
+  r.check.warnings.forEach(function (m) { body.appendChild(el('div', { class: 'note', text: m })); });
+
+  // 聞き返し
+  var pending = false;
+  if (p.question && p.question.text) {
+    pending = true;
+    var q = el('div', { class: 'question' }, [el('p', { text: '🤔 ' + p.question.text })]);
+    var ch = el('div', { class: 'choices' });
+    p.question.choices.forEach(function (c) { ch.appendChild(el('button', { text: c, onclick: function () { callInterpret({ correction: c }, true); } })); });
+    q.appendChild(ch);
+    q.appendChild(el('p', { class: 'sub', text: '選択肢に無ければ、下の「直す」で話すか書いてください。' }));
+    body.appendChild(q);
+  }
+  // 知らない言葉
+  (p.unknownTerms || []).forEach(function (t) {
+    pending = true;
+    var input = el('input', { type: 'text', placeholder: '例：膳は出さないが、食数には数える' });
+    var box = el('div', { class: 'question' }, [
+      el('p', { text: '📖 「' + t.term + '」の意味を教えてください。' + (t.question ? '（' + t.question + '）' : '') }),
+      input,
+      el('div', { class: 'row', style: 'margin-top:8px' }, [el('button', { class: 'btn', text: '意味を伝える', onclick: function () {
+        var meaning = input.value.trim(); if (!meaning) return;
+        api('proposeTerm', { term: t.term, meaning: meaning, draftId: S.draftId }).then(function (d) {
+          S.data.glossary = d.glossary; renderGlossary();
+          toast('「' + t.term + '」を用語集の候補に入れました');
+          return callInterpret({ correction: '「' + t.term + '」は「' + meaning + '」という意味です。' }, true);
+        }).catch(function (err) { showError('careError', err.message); });
+      } })])
+    ]);
+    body.appendChild(box);
   });
 
+  // 変更前・変更後の予定表
+  if (r.preview && r.preview.changed.length) {
+    body.appendChild(el('h3', { text: '予定表（色の付いたところが変わります）' }));
+    body.appendChild(el('div', { class: 'tbl-wrap' }, [scheduleTable(r.preview.before, r.preview.after, r.preview.changed, prev)]));
+  }
 
-  // 5. GAS のやり取りの口（doPost）を呼ぶ。text/plain で送り、事前の問い合わせを起こさない
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbwT8C7kKG77Y8nNccj35KjIwsOUDSYX4NcfPpDPLCoAvyZQV9Wj8UWDIK0-Crrt8dDC/exec';
-  document.getElementById('btnGas').addEventListener('click', function () {
-    var sr = document.getElementById('resSr').textContent;
-    var m = sr.match(/聞き取った文：(.*)/);
-    var text = m ? m[1] : document.getElementById('kb').value;
-    if (!text) text = '（文が無いので、この文を送ります）';
-    var btn = document.getElementById('btnGas');
-    btn.disabled = true;
-    document.getElementById('resGas').textContent = '送っています…';
-    var t0 = Date.now();
-    fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ text: text })
-    }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    }).then(function (data) {
-      if (!data.ok) throw new Error('GAS からのエラー：' + data.error);
-      show('resGas', true, '返ってきた文：' + data.received.text + '\nGAS の時刻：' + data.serverTime + '\nかかった時間：' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒');
-    }).catch(function (err) {
-      show('resGas', false, 'エラー：' + err.message);
-    }).then(function () { btn.disabled = false; });
+  // 直す
+  var corr = el('textarea', { rows: 2, placeholder: '例：違う、今回だけじゃなくて、これからずっと' });
+  var corrMic = el('button', { class: 'mic', text: '🎤 話す' });
+  var corrBox = el('div', { class: 'card', style: 'background:#fafbfc;margin-top:12px' }, [
+    el('h3', { text: '直す（話すか、書いてください）' }), el('div', { class: 'row' }, [corrMic]), corr,
+    el('div', { class: 'row', style: 'margin-top:8px' }, [el('button', { class: 'btn sec', text: '直しを伝える', onclick: function () {
+      var c = corr.value.trim(); if (!c) return; callInterpret({ correction: c }, true);
+    } })])
+  ]);
+  setupMic(corrMic, corr);
+
+  var canSend = !pending && !r.check.errors.length && p.operations.length > 0;
+  var sendBtn = el('button', { class: 'btn', text: 'はい、厨房へ送る', onclick: function () { sendRequest(sendBtn); } });
+  sendBtn.disabled = !canSend;
+  body.appendChild(el('div', { class: 'row', style: 'margin-top:12px' }, [sendBtn,
+    el('span', { class: 'small', text: canSend ? '' : (pending ? 'AIの質問に答えてから送れます' : '直すところがあります') })]));
+  body.appendChild(corrBox);
+
+  if (p.transcription) body.appendChild(el('details', {}, [el('summary', { text: '写真から読み取った文' }), el('pre', { text: p.transcription })]));
+  body.appendChild(el('details', {}, [el('summary', { text: 'AIに送った文（氏名は置き換え済み）' }), el('pre', { text: r.sentText })]));
+  var u2 = r.usage ? '入力 ' + r.usage.input_tokens + '・出力 ' + r.usage.output_tokens + ' トークン' : '';
+  body.appendChild(el('p', { class: 'small', text: 'AI：' + r.model + '／' + r.seconds + ' 秒' + (u2 ? '／' + u2 : '') }));
+  $('planCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 予定表（日×食事）。after があれば変わった所に「前→後」を出す
+function cellText(row, before) {
+  var mark = row['食べる'] === 'はい' ? '○' : '×';
+  var t = mark;
+  if (before && before['食べる'] !== row['食べる']) t = (before['食べる'] === 'はい' ? '○' : '×') + '→' + mark;
+  ['主食', '主食の量', '副食', 'おやつ'].forEach(function (k) {
+    if (before && before[k] !== row[k]) t += ' ' + k + '：' + before[k] + '→' + row[k];
   });
-
-  // 4. 環境の情報（原因を調べるため）
-  (function () {
-    var rows = [];
-    rows.push(['ブラウザ', navigator.userAgent]);
-    rows.push(['安全な接続か（https）', String(window.isSecureContext)]);
-    var framed;
-    try { framed = window.top !== window.self; } catch (e) { framed = '判定できない（' + e.name + '）'; }
-    rows.push(['枠（iframe）の中か', String(framed)]);
-    rows.push(['このページの場所', location.origin]);
-    var pp = document.permissionsPolicy || document.featurePolicy;
-    if (pp && pp.allowsFeature) {
-      rows.push(['枠の設定でマイクが許されているか', String(pp.allowsFeature('microphone'))]);
-    } else {
-      rows.push(['枠の設定でマイクが許されているか', 'このブラウザでは調べられない']);
-    }
-    rows.push(['音声認識の機能があるか', String(!!(window.SpeechRecognition || window.webkitSpeechRecognition))]);
-    var tbl = document.getElementById('env');
-    rows.forEach(function (r) {
-      var tr = document.createElement('tr');
-      r.forEach(function (c) { var td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
-      tbl.appendChild(tr);
+  return t;
+}
+function scheduleTable(beforeRows, afterRows, changed) {
+  var rows = afterRows || beforeRows;
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  S.data.days.forEach(function (d) {
+    var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
+    S.data.meals.forEach(function (m) {
+      var a = rows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      var b = beforeRows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      var isChg = changed && changed.indexOf(d + '#' + m) >= 0;
+      var td = el('td', { class: (isChg ? 'chg' : (a && a['食べる'] !== 'はい' ? 'no' : '')), text: a ? cellText(a, afterRows ? b : null) : '' });
+      if (a && a['食べる'] !== 'はい' && a['理由']) td.title = a['理由'];
+      tr.appendChild(td);
     });
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions.query({ name: 'microphone' }).then(function (st) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td>マイクの許可の状態</td><td></td>';
-        tr.lastChild.textContent = st.state;
-        tbl.appendChild(tr);
-      }).catch(function (e) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td>マイクの許可の状態</td><td></td>';
-        tr.lastChild.textContent = '調べられない（' + e.name + '）';
-        tbl.appendChild(tr);
-      });
-    }
-  })();
+    tbl.appendChild(tr);
+  });
+  return tbl;
+}
+
+function sendRequest(btn) {
+  var r = S.result; btn.disabled = true;
+  api('submitRequest', {
+    plan: r.plan, masked: r.masked, draftId: S.draftId, inputMethod: S.inputMethod,
+    text: $('inputText').value.trim(), sentText: r.sentText, enteredBy: $('me').value
+  }).then(function (d) {
+    toast('厨房へ送りました（依頼 ' + d.requestId + '）');
+    S.result = null; S.image = null; S.sampleId = ''; S.inputMethod = '文';
+    $('inputText').value = ''; $('photoPrev').hidden = true; $('planCard').hidden = true;
+    refresh();
+  }).catch(function (err) { showError('careError', err.message); btn.disabled = false; });
+}
+
+// ---------- 厨房 ----------
+function refresh() {
+  return api('getState').then(function (data) { applyState(data); $('lastCheck').textContent = '最後に確かめた時刻 ' + data.now.slice(11, 16); })
+    .catch(function (err) { toast(err.message); });
+}
+$('refreshBtn').addEventListener('click', refresh);
+function startPolling() { stopPolling(); S.polling = setInterval(function () { if (!document.hidden && S.page === 'kitchen') refresh(); }, POLL_SECONDS * 1000); }
+function stopPolling() { if (S.polling) clearInterval(S.polling); S.polling = null; }
+
+function renderKitchen() {
+  var reqs = S.data.requests;
+  var list = $('reqList'); list.innerHTML = '';
+  var waiting = reqs.filter(function (r) { return r['状態'] === '受付'; });
+  if (!waiting.length) list.appendChild(el('p', { class: 'sub', text: '新しい依頼はありません。' }));
+  waiting.forEach(function (r) {
+    var u = userById(r['利用者ID']);
+    var isNew = !S.seenRequests[r['依頼番号']];
+    var btn = el('button', { class: 'btn', text: '確認しました', onclick: function () {
+      btn.disabled = true;
+      api('confirmRequest', { requestId: r['依頼番号'] }).then(function (d) {
+        S.lastChanged = d.changes.map(function (c) { return c.date + '#' + c.meal; });
+        applyState(d); toast(r['依頼番号'] + ' を反映しました');
+      }).catch(function (err) { toast(err.message); btn.disabled = false; });
+    } });
+    list.appendChild(el('div', { class: 'req' + (isNew ? ' new' : '') }, [
+      el('div', {}, [el('b', { text: (u ? u['氏名'] + '様' : r['利用者ID']) + '（' + (u ? u['フロア'] : '') + '）' }),
+        el('span', { class: 'badge wait', text: '受付' }),
+        r['締め切りを過ぎているか'] === 'はい' ? el('span', { class: 'badge late', text: '締め切りを過ぎています' }) : null]),
+      el('div', { text: r['説明'] }),
+      el('div', { class: 'meta', text: r['依頼番号'] + '／' + r['受付日時'].slice(5, 16) + '／' + r['入力の方法'] + '／入れた人：' + (r['入れた人'] || '―') }),
+      el('div', { class: 'row', style: 'margin-top:6px' }, [btn])
+    ]));
+  });
+  reqs.forEach(function (r) { S.seenRequests[r['依頼番号']] = true; });
+  var done = $('doneList'); done.innerHTML = '';
+  reqs.filter(function (r) { return r['状態'] !== '受付'; }).forEach(function (r) {
+    var u = userById(r['利用者ID']);
+    done.appendChild(el('div', { class: 'req' }, [
+      el('div', {}, [el('b', { text: (u ? u['氏名'] + '様' : r['利用者ID']) }), el('span', { class: 'badge ' + (r['状態'] === '反映済み' ? 'done' : 'late'), text: r['状態'] })]),
+      el('div', { text: r['説明'] }),
+      el('div', { class: 'meta', text: r['依頼番号'] + '／確認 ' + (r['厨房が確認した日時'] || '').slice(5, 16) })
+    ]));
+  });
+  renderCounts(); renderSchedUser();
+}
+
+function renderCounts() {
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  S.data.days.forEach(function (d) {
+    var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
+    S.data.meals.forEach(function (m) {
+      var n = S.data.schedule.filter(function (x) { return x['日付'] === d && x['食事'] === m && x['食べる'] === 'はい'; }).length + S.data.otherCount;
+      var isChg = S.lastChanged.indexOf(d + '#' + m) >= 0;
+      tr.appendChild(el('td', { class: isChg ? 'chg' : '', text: String(n) }));
+    });
+    tbl.appendChild(tr);
+  });
+  var box = $('countTable'); box.innerHTML = ''; box.appendChild(tbl);
+}
+
+function renderSchedUser() {
+  var sel = $('schedUser'); var cur = sel.value || (S.data.users[0] && S.data.users[0]['利用者ID']);
+  sel.innerHTML = '';
+  S.data.users.forEach(function (u) { sel.appendChild(el('option', { value: u['利用者ID'], text: u['氏名'] + '（' + u['フロア'] + '・' + u['利用区分'] + '）' })); });
+  sel.value = cur;
+  var rows = S.data.schedule.filter(function (x) { return x['利用者ID'] === cur; });
+  var u = userById(cur);
+  var box = $('schedTable'); box.innerHTML = '';
+  box.appendChild(el('p', { class: 'sub', text: '主食：' + u['主食'] + '（' + u['主食の量'] + '）／副食：' + u['副食'] + '／とろみ：' + u['とろみ'] + '／おやつ：' + u['おやつ'] + '（○＝食べる、×＝食べない。× にマウスを当てると理由）' }));
+  box.appendChild(scheduleTable(rows, null, S.lastChanged.length ? S.lastChanged : null));
+  // 形態や量が「いつも」と違う日を書き出す
+  var diffs = rows.filter(function (r) { return r['主食'] !== u['主食'] || r['主食の量'] !== u['主食の量'] || r['副食'] !== u['副食'] || r['おやつ'] !== u['おやつ']; });
+  if (diffs.length) box.appendChild(el('p', { class: 'sub', text: '形態や量が変わっている食事：' + diffs.slice(0, 8).map(function (r) { return md(r['日付']) + r['食事'] + '（' + r['主食'] + '・' + r['主食の量'] + '・' + r['副食'] + '・' + r['おやつ'] + '）'; }).join('、') + (diffs.length > 8 ? ' ほか' : '') }));
+}
+$('schedUser').addEventListener('change', renderSchedUser);
+
+// ---------- 用語集 ----------
+function renderGlossary() {
+  var box = $('glossaryList'); box.innerHTML = '';
+  var g = S.data.glossary.filter(function (x) { return x['状態'] !== '取り消し'; });
+  if (!g.length) { box.appendChild(el('p', { class: 'sub', text: 'まだ言葉はありません。介護職員の画面で、AIが知らない言葉を聞き返すと、ここに候補が入ります。' })); return; }
+  g.forEach(function (t) {
+    var actions = [];
+    if (t['状態'] === '候補') actions.push(el('button', { class: 'btn', text: '承認する', onclick: function () { termAction('approveTerm', t['言葉']); } }));
+    actions.push(el('button', { class: 'btn sec', text: '取り消す', onclick: function () { termAction('revokeTerm', t['言葉']); } }));
+    box.appendChild(el('div', { class: 'req' }, [
+      el('div', {}, [el('b', { text: '「' + t['言葉'] + '」' }), el('span', { class: 'badge ' + (t['状態'] === '承認済み' ? 'done' : 'wait'), text: t['状態'] })]),
+      el('div', { text: t['意味'] }),
+      el('div', { class: 'meta', text: (t['承認した人'] ? '承認：' + t['承認した人'] + '／' : '') + t['日時'] }),
+      el('div', { class: 'row', style: 'margin-top:6px' }, actions)
+    ]));
+  });
+}
+function termAction(action, term) {
+  api(action, { term: term, by: $('me').value }).then(function (d) { S.data.glossary = d.glossary; renderGlossary(); toast('用語集を更新しました'); })
+    .catch(function (err) { toast(err.message); });
+}
+
+// ---------- 設定 ----------
+$('openSettings').addEventListener('click', function () { $('settingsModal').classList.add('on'); });
+$('settingsClose').addEventListener('click', function () { $('settingsModal').classList.remove('on'); });
+$('resetBtn').addEventListener('click', function () {
+  if (!confirm('予定・依頼・用語集をすべて消して、最初の状態に戻します。開いている全員に効きます。よろしいですか？')) return;
+  $('resetBtn').disabled = true;
+  api('resetData').then(function (d) { S.lastChanged = []; S.result = null; $('planCard').hidden = true; applyState(d); toast('最初の状態に戻しました'); $('settingsModal').classList.remove('on'); })
+    .catch(function (err) { toast(err.message); }).then(function () { $('resetBtn').disabled = false; });
+});
+$('passReset').addEventListener('click', function () { store('meal-slip-pass', null); $('settingsModal').classList.remove('on'); askPass(); });
+
+start();
 </script>
 </body>
 </html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイク確認テスト</title>
+<style>
+  body { font-family: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif; margin: 16px; color: #22303c; background: #fff; line-height: 1.6; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p.sub { color: #5d6b78; margin: 0 0 16px; }
+  section { border: 1px solid #d9dfe5; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  button { font: inherit; font-size: 17px; padding: 10px 18px; border-radius: 8px; border: 1px solid #22303c; background: #22303c; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; }
+  .res { margin-top: 10px; padding: 8px 10px; background: #f4f6f8; border-radius: 6px; white-space: pre-wrap; min-height: 1.6em; }
+  .ok { color: #1f6f43; font-weight: 700; }
+  .ng { color: #b0322b; font-weight: 700; }
+  textarea { width: 100%; font: inherit; font-size: 17px; padding: 8px; box-sizing: border-box; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td { border: 1px solid #d9dfe5; padding: 4px 8px; vertical-align: top; word-break: break-all; }
+  td:first-child { width: 42%; background: #f8f9fa; }
+</style>
+</head>
+<body>
+<h1>マイク確認テスト</h1>
+<p class="sub">GitHub Pages に置いた画面で、マイクと音声認識が使えるか、GAS とやり取りできるかを確かめます。上から順にボタンを押し、結果の画面を撮って共有してください。</p>
+
+<section>
+  <h2>1. マイクを使えるか（録音の許可）</h2>
+  <button id="btnMic">マイクを試す</button>
+  <div class="res" id="resMic"></div>
+</section>
+
+<section>
+  <h2>2. 音声認識（話した言葉を文字にする）</h2>
+  <button id="btnSr">話してみる</button>
+  <div class="res" id="resSr"></div>
+</section>
+
+<section>
+  <h2>3. 予備：キーボードの音声入力</h2>
+  <p class="sub">この欄を押し、キーボードのマイクのキーで話してください。</p>
+  <textarea id="kb" rows="3" placeholder="ここに話した言葉が入ります"></textarea>
+</section>
+
+
+<section>
+  <h2>5. GAS とやり取りできるか</h2>
+  <p class="sub">2 で聞き取った文（無ければ 3 の欄の文）を GAS に送り、そのまま返ってくるかを見ます。</p>
+  <button id="btnGas">GAS に送る</button>
+  <div class="res" id="resGas"></div>
+</section>
+
+<section>
+  <h2>4. 環境の情報</h2>
+  <table id="env"></table>
+</section>
+
+<script>
+  function show(id, ok, text) {
+    var el = document.getElementById(id);
+    el.innerHTML = '';
+    var b = document.createElement('span');
+    b.className = ok ? 'ok' : 'ng';
+    b.textContent = ok ? '使えました' : '使えませんでした';
+    el.appendChild(b);
+    el.appendChild(document.createTextNode('\n' + text));
+  }
+
+  // 1. getUserMedia でマイクの許可を求める
+  document.getElementById('btnMic').addEventListener('click', function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      show('resMic', false, 'このブラウザ（またはこの枠の中）には、マイクを使う機能がありません。');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var tracks = stream.getAudioTracks();
+      show('resMic', true, 'マイク：' + (tracks[0] ? tracks[0].label : '（名前なし）'));
+      tracks.forEach(function (t) { t.stop(); });
+    }).catch(function (err) {
+      show('resMic', false, 'エラー：' + err.name + '\n' + err.message);
+    });
+  });
+
+  // 2. ブラウザ標準の音声認識（Web Speech API）
+  document.getElementById('btnSr').addEventListener('click', function () {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      show('resSr', false, 'このブラウザには音声認識の機能がありません。');
+      return;
+    }
+    var sr = new SR();
+    sr.lang = 'ja-JP';
+    sr.interimResults = true;
+    sr.maxAlternatives = 1;
+    var btn = document.getElementById('btnSr');
+    var finalText = '';
+    btn.disabled = true;
+    document.getElementById('resSr').textContent = '聞き取り中です。話してください…';
+    sr.onresult = function (ev) {
+      var interim = '';
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+        else interim += ev.results[i][0].transcript;
+      }
+      document.getElementById('resSr').textContent = '聞き取り中：' + finalText + interim;
+    };
+    sr.onerror = function (ev) {
+      show('resSr', false, 'エラー：' + ev.error + (ev.message ? '\n' + ev.message : ''));
+      btn.disabled = false;
+    };
+    sr.onend = function () {
+      btn.disabled = false;
+      if (finalText) show('resSr', true, '聞き取った文：' + finalText);
+      else if (document.getElementById('resSr').textContent.indexOf('エラー') < 0) {
+        show('resSr', false, '文字になりませんでした（何も聞き取れなかったか、すぐに止められました）。');
+      }
+    };
+    try {
+      sr.start();
+    } catch (err) {
+      show('resSr', false, 'エラー：' + err.name + '\n' + err.message);
+      btn.disabled = false;
+    }
+  });
+
+
+  // 5. GAS のやり取りの口（doPost）を呼ぶ。text/plain で送り、事前の問い合わせを起こさない
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbwT8C7kKG77Y8nNccj35KjIwsOUDSYX4NcfPpDPLCoAvyZQV9Wj8UWDIK0-Crrt8dDC/exec';
+  document.getElementById('btnGas').addEventListener('click', function () {
+    var sr = document.getElementById('resSr').textContent;
+    var m = sr.match(/聞き取った文：(.*)/);
+    var text = m ? m[1] : document.getElementById('kb').value;
+    if (!text) text = '（文が無いので、この文を送ります）';
+    var btn = document.getElementById('btnGas');
+    btn.disabled = true;
+    document.getElementById('resGas').textContent = '送っています…';
+    var t0 = Date.now();
+    fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ text: text })
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (!data.ok) throw new Error('GAS からのエラー：' + data.error);
+      show('resGas', true, '返ってきた文：' + data.received.text + '\nGAS の時刻：' + data.serverTime + '\nかかった時間：' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒');
+    }).catch(function (err) {
+      show('resGas', false, 'エラー：' + err.message);
+    }).then(function () { btn.disabled = false; });
+  });
+
+  // 4. 環境の情報（原因を調べるため）
+  (function () {
+    var rows = [];
+    rows.push(['ブラウザ', navigator.userAgent]);
+    rows.push(['安全な接続か（https）', String(window.isSecureContext)]);
+    var framed;
+    try { framed = window.top !== window.self; } catch (e) { framed = '判定できない（' + e.name + '）'; }
+    rows.push(['枠（iframe）の中か', String(framed)]);
+    rows.push(['このページの場所', location.origin]);
+    var pp = document.permissionsPolicy || document.featurePolicy;
+    if (pp && pp.allowsFeature) {
+      rows.push(['枠の設定でマイクが許されているか', String(pp.allowsFeature('microphone'))]);
+    } else {
+      rows.push(['枠の設定でマイクが許されているか', 'このブラウザでは調べられない']);
+    }
+    rows.push(['音声認識の機能があるか', String(!!(window.SpeechRecognition || window.webkitSpeechRecognition))]);
+    var tbl = document.getElementById('env');
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      r.forEach(function (c) { var td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+      tbl.appendChild(tr);
+    });
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'microphone' }).then(function (st) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>マイクの許可の状態</td><td></td>';
+        tr.lastChild.textContent = st.state;
+        tbl.appendChild(tr);
+      }).catch(function (e) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>マイクの許可の状態</td><td></td>';
+        tr.lastChild.textContent = '調べられない（' + e.name + '）';
+        tbl.appendChild(tr);
+      });
+    }
+  })();
+</script>
+</body>
+</html>
