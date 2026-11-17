@@ -84,6 +84,12 @@
   .samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
   .samples button { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 8px; text-align: left; font-size: 14px; }
   .samples button span { display: block; color: var(--sub); font-size: 12px; }
+  .recent { margin-top: 8px; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; background: #fafbfc; font-size: 14px; }
+  .recent .head { font-weight: 700; color: var(--sub); margin-bottom: 4px; }
+  .recent table { font-size: 13px; }
+  .recent td { padding: 3px 4px; }
+  .recent tr.today td.d { font-weight: 700; color: var(--accent); }
+  .recent .why { display: block; font-size: 11px; color: var(--sub); line-height: 1.3; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; display: none; z-index: 30; }
   .toast.on { display: block; }
   .small { font-size: 13px; color: var(--sub); }
@@ -126,6 +132,7 @@
       <p class="sub" id="micHint"></p>
       <p class="note">カメラで撮るときは、<b>実名の入った紙は撮らないでください。</b>撮った写真は外部のAIに送られます（保存はしません）。</p>
       <textarea id="inputText" rows="3" placeholder="例：明日の夕方から外泊がなくなったので、夕食から食べます"></textarea>
+      <div class="recent" id="recentBox" hidden></div>
       <div class="photo-prev" id="photoPrev" hidden>
         <img id="photoImg" alt="入れた写真">
         <div>
@@ -288,7 +295,7 @@ function start() {
 
 function applyState(data) {
   S.data = data;
-  renderMe(); renderUsers(); renderKitchen(); renderGlossary();
+  renderMe(); renderUsers(); renderRecent(); renderKitchen(); renderGlossary();
   $('aiInfo').textContent = '呼び出し口：' + data.provider + '／モデル：' + data.model;
   $('otherCount').textContent = data.otherCount;
 }
@@ -316,12 +323,45 @@ $('me').addEventListener('change', function () { store('meal-slip-me', $('me').v
 function renderUsers() {
   var box = $('userList'); box.innerHTML = '';
   S.data.users.forEach(function (u) {
-    var b = el('button', { class: 'user' + (u['利用者ID'] === S.userId ? ' on' : ''), onclick: function () { S.userId = u['利用者ID']; renderUsers(); } }, [
+    var b = el('button', { class: 'user' + (u['利用者ID'] === S.userId ? ' on' : ''), onclick: function () { S.userId = u['利用者ID']; renderUsers(); renderRecent(); } }, [
       el('b', { text: u['氏名'] }),
       el('span', { text: u['フロア'] + '・' + u['利用区分'] + (u['利用終了日'] && u['利用終了日'] < S.data.today ? '・利用終了' : '') })
     ]);
     box.appendChild(b);
   });
+}
+
+// 参考：選んだ利用者の直近の予定（今日から RECENT_DAYS 日）を、文字の欄の下に出す
+var RECENT_DAYS = 7;
+function renderRecent() {
+  var box = $('recentBox');
+  var u = S.userId && userById(S.userId);
+  if (!u) { box.hidden = true; return; }
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'head', text: '参考：' + u['氏名'] + '様の直近の予定（今日から' + RECENT_DAYS + '日。○＝食べる、×＝食べない）' }));
+  box.appendChild(el('div', { class: 'small', text: '主食：' + u['主食'] + '（' + u['主食の量'] + '）／副食：' + u['副食'] + '／とろみ：' + u['とろみ'] + '／おやつ：' + u['おやつ'] + '／' + u['利用区分'] + (u['利用終了日'] && u['利用終了日'] < S.data.today ? '（' + u['利用終了日'] + ' で利用終了）' : '') }));
+  var rows = S.data.schedule.filter(function (x) { return x['利用者ID'] === u['利用者ID']; });
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  S.data.days.slice(0, RECENT_DAYS).forEach(function (d) {
+    var tr = el('tr', { class: d === S.data.today ? 'today' : '' }, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' + (d === S.data.today ? ' 今日' : '') })]);
+    S.data.meals.forEach(function (m) {
+      var r = rows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      if (!r) { tr.appendChild(el('td', { class: 'no', text: '―' })); return; }
+      var eat = r['食べる'] === 'はい';
+      var kids = [eat ? '○' : '×'];
+      // いつもと違う形態・量は小さく添える
+      var diff = ['主食', '主食の量', '副食', 'おやつ'].filter(function (k) { return r[k] !== u[k]; }).map(function (k) { return r[k]; });
+      if (!eat && r['理由']) kids.push(el('span', { class: 'why', text: r['理由'] }));
+      else if (diff.length) kids.push(el('span', { class: 'why', text: diff.join('・') }));
+      tr.appendChild(el('td', { class: eat ? '' : 'no' }, kids));
+    });
+    tbl.appendChild(tr);
+  });
+  box.appendChild(el('div', { class: 'tbl-wrap' }, [tbl]));
+  var waiting = S.data.requests.filter(function (r) { return r['利用者ID'] === u['利用者ID'] && r['状態'] === '受付'; });
+  if (waiting.length) box.appendChild(el('div', { class: 'small', text: '厨房の確認待ちの依頼が ' + waiting.length + ' 件あります（この表にはまだ入っていません）' }));
+  box.hidden = false;
 }
 
 // 声（ブラウザ標準の音声認識）
