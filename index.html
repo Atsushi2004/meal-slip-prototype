@@ -179,6 +179,7 @@
   .plan-loading { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; font-weight: 700; position: sticky; top: calc(var(--head-h, 0px) + 8px); z-index: 2; }
   #planBody.waiting { opacity: .55; }
   .clear-row { margin-top: 6px; }
+  .choices button.speak { border-color: var(--accent); color: var(--accent); background: var(--surface); }
   .plan-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; border-left: 6px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
   .plan-who .lab { font-size: 13px; color: var(--muted); font-weight: 700; }
   .plan-who b { font-size: 24px; font-weight: 900; }
@@ -869,8 +870,15 @@ function renderPlan(prev) {
     var q = el('div', { class: 'question' }, [el('p', { text: '🤔 ' + p.question.text })]);
     var ch = el('div', { class: 'choices' });
     p.question.choices.forEach(function (c) { ch.appendChild(el('button', { text: c, onclick: function () { callInterpret({ correction: c }, true); } })); });
+    // 選択肢の最後に「話す」。押すと下の「直す」の欄が画面のいちばん下に来るまで送り、そのまま録音を始める
+    // （画面のマイクが使えない端末では「書いて答える」にして、書く欄にカーソルを置く）
+    ch.appendChild(el('button', { class: 'speak', text: Rec ? '🎤 話す' : '✏ 書いて答える', onclick: function () {
+      corrBox.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      if (Rec && !corrMic.hidden) { if (!activeRec) corrMic.click(); }
+      else corr.focus({ preventScroll: true });
+    } }));
     q.appendChild(ch);
-    q.appendChild(el('p', { class: 'sub', text: '選択肢に無ければ、下の「直す」で話すか書いてください。' }));
+    q.appendChild(el('p', { class: 'sub', text: Rec ? '選択肢に無ければ「話す」を押して答えてください（下の欄に書いても答えられます）。' : '選択肢に無ければ「書いて答える」を押して、下の欄に書いてください。' }));
     body.appendChild(q);
   }
   // 知らない言葉
