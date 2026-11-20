@@ -845,14 +845,14 @@ function renderPlan(prev) {
   var r = S.result; var p = r.plan; var body = $('planBody'); body.innerHTML = '';
   $('planCard').hidden = false;
   var u = userById(p.userId);
-  // だれの変更かを、いちばん上に大きく出す（送る前に人を取り違えていないか確かめられるように）
+  // 読み取った内容を先に、そのすぐ下にだれの変更かを大きく出す（内容を読んでから、人を取り違えていないか確かめられるように）
   var who = u ? u['氏名'] + '様' : '（利用者が分かりません）';
+  body.appendChild(el('div', { class: 'explain', text: p.explanation }));
   body.appendChild(el('div', { class: 'plan-who' }, [
     el('span', { class: 'lab', text: '対象の利用者' }),
     el('b', { text: who }),
     el('span', { class: 'meta', text: u ? u['フロア'] + '・' + u['利用区分'] + '／入力：' + S.inputMethod : '' })
   ]));
-  body.appendChild(el('div', { class: 'explain', text: p.explanation }));
   if (p.operations.length) {
     var ul = el('ul', {});
     p.operations.forEach(function (op) { ul.appendChild(el('li', { text: opText(op) })); });
