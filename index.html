@@ -566,13 +566,13 @@ $('inputText').addEventListener('input', function () {
   searchTimer = setTimeout(function () { if (!composing && !activeRec) searchFromText(false); }, 800);
 });
 
-// AIにはこう送る（GAS と同じ決まりで、名前を「利用者A」「職員1」に置き換えた文を見せる。実際の置き換えは GAS が行う）
+// AIにはこう送る（GAS と同じ決まりで、名前を「利用者A」「別の利用者」「職員1」に置き換えた文を見せる。実際の置き換えは GAS が行う）
 function maskForPreview(text) {
   var ordered = S.data.users.filter(function (u) { return u['利用者ID'] === S.userId; })
     .concat(S.data.users.filter(function (u) { return u['利用者ID'] !== S.userId; }));
   var pairs = [];
   ordered.forEach(function (u, i) {
-    var alias = '利用者' + String.fromCharCode(65 + i);
+    var alias = i === 0 ? '利用者A' : '別の利用者';   // 選んだ人は常に利用者A、ほかの利用者はだれでも「別の利用者」
     nameVariants(u['氏名'], u['読み']).forEach(function (v) { pairs.push([v, alias]); });
   });
   S.data.staff.forEach(function (s, i) {
