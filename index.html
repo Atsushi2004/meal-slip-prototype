@@ -566,29 +566,47 @@ $('inputText').addEventListener('input', function () {
   searchTimer = setTimeout(function () { if (!composing && !activeRec) searchFromText(false); }, 800);
 });
 
-// AIにはこう送る（GAS と同じ決まりで、名前を「利用者A」「別の利用者」「職員1」に置き換えた文を見せる。実際の置き換えは GAS が行う）
+// AIにはこう送る（GAS と同じ決まりで置き換えた文を見せる。実際の置き換えは GAS が行う）
+// 選んだ利用者は「利用者A」、話に出てきたほかの利用者は出てきた順に「利用者B」「利用者C」…、職員は「職員1」など
+function aliasLetters(n) {
+  var s = ''; n += 1;
+  while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
 function maskForPreview(text) {
-  var ordered = S.data.users.filter(function (u) { return u['利用者ID'] === S.userId; })
-    .concat(S.data.users.filter(function (u) { return u['利用者ID'] !== S.userId; }));
-  var pairs = [];
-  ordered.forEach(function (u, i) {
-    var alias = i === 0 ? '利用者A' : '別の利用者';   // 選んだ人は常に利用者A、ほかの利用者はだれでも「別の利用者」
-    nameVariants(u['氏名'], u['読み']).forEach(function (v) { pairs.push([v, alias]); });
+  var entries = [];
+  S.data.users.forEach(function (u) {
+    var kind = u['利用者ID'] === S.userId ? 'selected' : 'user';
+    nameVariants(u['氏名'], u['読み']).forEach(function (v) { entries.push({ word: v, kind: kind, id: u['利用者ID'] }); });
   });
   S.data.staff.forEach(function (s, i) {
-    nameVariants(s['氏名'], s['読み']).forEach(function (v) { pairs.push([v, '職員' + (i + 1)]); });
+    nameVariants(s['氏名'], s['読み']).forEach(function (v) { entries.push({ word: v, kind: 'staff', alias: '職員' + (i + 1) }); });
   });
-  pairs.sort(function (a, b) { return b[0].length - a[0].length; });
-  var t = text;
-  pairs.forEach(function (p) { t = t.split(p[0]).join(p[1]); });
-  return t;
+  var keyToAlias = {}, next = 1, out = '', i = 0;
+  while (i < text.length) {
+    var cands = entries.filter(function (e) { return text.startsWith(e.word, i); });
+    if (!cands.length) { out += text.charAt(i); i += 1; continue; }
+    var maxLen = Math.max.apply(null, cands.map(function (e) { return e.word.length; }));
+    var longest = cands.filter(function (e) { return e.word.length === maxLen; });
+    var word = longest[0].word, alias;
+    if (longest.some(function (e) { return e.kind === 'selected'; })) alias = '利用者A';
+    else if (longest.every(function (e) { return e.kind === 'staff'; })) alias = longest[0].alias;
+    else {
+      var ids = Array.from(new Set(longest.filter(function (e) { return e.kind === 'user'; }).map(function (e) { return e.id; })));
+      var key = ids.length === 1 ? 'id:' + ids[0] : 'word:' + word;
+      if (!keyToAlias[key]) { keyToAlias[key] = '利用者' + aliasLetters(next); next += 1; }
+      alias = keyToAlias[key];
+    }
+    out += alias; i += word.length;
+  }
+  return out;
 }
 function renderMasked() {
   var box = $('maskedBox');
   var text = $('inputText').value.trim();
   if (!S.data || !S.userId || !text) { box.hidden = true; return; }
   box.innerHTML = '';
-  box.appendChild(el('b', { text: 'AIにはこう送ります（名前は伏せて「利用者A」などに置き換えます）' }));
+  box.appendChild(el('b', { text: 'AIにはこう送ります（名前は伏せ、対象の方を「利用者A」、話に出たほかの方を出てきた順に「利用者B」「利用者C」…にします）' }));
   box.appendChild(el('div', { text: maskForPreview(text) }));
   box.hidden = false;
 }
