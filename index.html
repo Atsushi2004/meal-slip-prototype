@@ -895,7 +895,7 @@ function renderPlan(prev) {
   // 変更前・変更後の予定表
   if (r.preview && r.preview.changed.length) {
     body.appendChild(el('h3', { text: who + 'の予定表（色の付いたところが変わります）' }));
-    body.appendChild(el('div', { class: 'tbl-wrap' }, [scheduleTable(r.preview.before, r.preview.after, r.preview.changed, prev)]));
+    body.appendChild(el('div', { class: 'tbl-wrap' }, [scheduleTable(r.preview.before, r.preview.after, r.preview.changed, PLAN_DAYS)]));
   }
 
   // 直す
@@ -920,7 +920,9 @@ function renderPlan(prev) {
   body.appendChild(el('details', {}, [el('summary', { text: 'AIに送った文（氏名は置き換え済み）' }), el('pre', { text: r.sentText })]));
   var u2 = r.usage ? '入力 ' + r.usage.input_tokens + '・出力 ' + r.usage.output_tokens + ' トークン' : '';
   body.appendChild(el('p', { class: 'small', text: 'AI：' + r.model + '／' + r.seconds + ' 秒' + (u2 ? '／' + u2 : '') }));
-  $('planCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 読み取った内容と対象の利用者名が、上の見出しのすぐ下に来るように送る
+  var top = body.querySelector('.explain').getBoundingClientRect().top + window.scrollY - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--head-h')) || 0) - 12;
+  window.scrollTo({ top: top, behavior: 'smooth' });
 }
 
 // 予定表（日×食事）。after があれば変わった所に「前→後」を出す
@@ -933,11 +935,19 @@ function cellText(row, before) {
   });
   return t;
 }
-function scheduleTable(beforeRows, afterRows, changed) {
+// maxDays を渡すと、今日からその日数だけ出す（変わる日がその先にあれば、そこまで伸ばす）
+var PLAN_DAYS = 10;   // 確認画面の予定表に出す日数
+function scheduleTable(beforeRows, afterRows, changed, maxDays) {
   var rows = afterRows || beforeRows;
+  var days = S.data.days;
+  if (maxDays) {
+    var n = maxDays;
+    (changed || []).forEach(function (k) { var i = days.indexOf(k.split('#')[0]); if (i + 1 > n) n = i + 1; });
+    days = days.slice(0, n);
+  }
   var tbl = el('table', {});
   tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
-  S.data.days.forEach(function (d) {
+  days.forEach(function (d) {
     var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
     S.data.meals.forEach(function (m) {
       var a = rows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
