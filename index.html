@@ -170,6 +170,16 @@
   .cand mark { background: var(--warn-bg); color: inherit; border-radius: 3px; padding: 0 2px; }
   #pickerHits { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
   .link { border: 0; background: none; color: var(--accent); text-decoration: underline; font-size: 14px; padding: 6px 0; text-align: left; }
+  /* 押した感：押している間は少し沈む。読み取り中・送信中のボタンは回る印と文字で示す */
+  button, .btn { transition: transform .08s ease, filter .08s ease, background-color .15s ease; }
+  button:active:not(:disabled), label.btn:active { transform: scale(.96); filter: brightness(.9); }
+  button.busy, button.busy:disabled { opacity: 1; cursor: progress; }
+  button.busy::before { content: ''; display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite; vertical-align: -2px; }
+  .choices button.chosen, .choices button.chosen:disabled { background: var(--accent); border-color: var(--accent); color: var(--on-accent); opacity: 1; }
+  .plan-loading { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; font-weight: 700; position: sticky; top: calc(var(--head-h, 0px) + 8px); z-index: 2; }
+  #planBody.waiting { opacity: .55; }
+  .clear-row { margin-top: 6px; }
+  .clear-row .btn { min-height: 36px; padding: 4px 14px; font-size: 14px; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 10px; display: none; z-index: 30; }
   .toast.on { display: block; }
   input[type=text], input[type=password] { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 48px; width: 100%; background: var(--bg); }
@@ -207,6 +217,7 @@
       <p class="sub" id="micHint"></p>
       <p class="note">カメラで撮るときは、<b>実名の入った紙は撮らないでください。</b>撮った写真は外部のAIに送られます（保存はしません）。</p>
       <textarea id="inputText" rows="3" placeholder="例：佐藤さん、明日の夕方から外泊がなくなったので、夕食から食べます"></textarea>
+      <div class="row clear-row"><span class="spacer"></span><button class="btn sec" id="clearBtn">入力を消す</button></div>
       <div class="photo-prev" id="photoPrev" hidden>
         <img id="photoImg" alt="入れた写真">
         <div>
@@ -231,6 +242,7 @@
 
     <div class="card" id="planCard" hidden>
       <h2>2. AIの読み取り（変更案）</h2>
+      <div class="loading plan-loading" id="planLoading"><div class="spin"></div><span>AIが読み直しています…（10〜40秒ほど）</span></div>
       <div id="planBody"></div>
     </div>
   </section>
@@ -558,10 +570,14 @@ function searchFromText(force) {
 }
 function scheduleSearch() {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(function () {
-    if (composing || activeRec) { scheduleSearch(); return; }   // 変換中・録音中は、終わるまで待ち直す
+  var waited = 0;
+  function tick() {
+    if (activeRec) { searchTimer = setTimeout(tick, 800); return; }        // 録音中は、話し終えるまで待つ
+    // 変換中なら1回だけ待ち直し、それでも変換中のままなら出す（タブレットのキーボードは、入力欄にいる間ずっと「変換中」のことがある）
+    if (composing && waited < 1) { waited += 1; searchTimer = setTimeout(tick, 800); return; }
     searchFromText(false);
-  }, 800);
+  }
+  searchTimer = setTimeout(tick, 800);
 }
 $('inputText').addEventListener('compositionstart', function () { composing = true; });
 $('inputText').addEventListener('compositionend', function () { composing = false; scheduleSearch(); });
@@ -732,6 +748,18 @@ function shrink(file, longSide, quality) {
   });
 }
 function showPhoto(src, label) { $('photoImg').src = src; $('photoLabel').textContent = label; $('photoPrev').hidden = false; }
+// 入力を消す：文・写真・AIの読み取り・対象の利用者を空にして、最初からやり直せるようにする
+$('clearBtn').addEventListener('click', function () {
+  clearTimeout(searchTimer);
+  $('inputText').value = '';
+  S.image = null; S.sampleId = ''; S.inputMethod = '文'; $('photoPrev').hidden = true;
+  S.result = null; S.draftId = ''; $('planCard').hidden = true; $('planBody').innerHTML = '';
+  S.userId = ''; S.recentOffset = 0; S.picker.lastText = '';
+  showError('careError', '');
+  closePicker(); renderTarget(); renderRecent(); renderMasked();
+  $('inputText').focus();
+  toast('入力を消しました');
+});
 $('photoClear').addEventListener('click', function () { S.image = null; S.sampleId = ''; $('photoPrev').hidden = true; });
 
 // AIに読み取ってもらう（初回）
@@ -745,13 +773,41 @@ $('interpretBtn').addEventListener('click', function () {
   callInterpret({ text: text }, false);
 });
 
+// 読み直し中の帯が、上に固定した見出しに隠れないよう、見出しの高さを覚えておく
+function setHeadHeight() {
+  var hd = document.querySelector('header');
+  var h = getComputedStyle(hd).position === 'sticky' ? hd.offsetHeight : 0;
+  document.documentElement.style.setProperty('--head-h', h + 'px');
+}
+setHeadHeight(); window.addEventListener('resize', setHeadHeight);
+
+// 直前に押したボタン（読み取り中の印を付けるため）
+S.lastBtn = null;
+document.addEventListener('click', function (e) { S.lastBtn = e.target.closest('button'); }, true);
+function markBusy(btn, label) {
+  if (!btn) return;
+  btn.dataset.label = btn.textContent;
+  btn.classList.add('busy');
+  btn.textContent = label;
+}
+function unmarkBusy(btn) {
+  if (!btn || !btn.classList.contains('busy')) return;
+  btn.classList.remove('busy', 'chosen');
+  btn.textContent = btn.dataset.label;
+}
+
 function callInterpret(extra, isCorrection) {
   var payload = Object.assign({
     userId: S.userId, draftId: S.draftId, inputMethod: S.inputMethod,
     text: $('inputText').value.trim(), sampleId: S.sampleId || '', image: S.image
   }, extra);
   if (isCorrection && S.result) payload.previousPlan = { masked: S.result.masked };
-  $('careLoading').classList.add('on');
+  var btn = S.lastBtn && (S.lastBtn === $('interpretBtn') || $('planBody').contains(S.lastBtn)) ? S.lastBtn : null;
+  if (btn && btn.parentNode && btn.parentNode.classList.contains('choices')) btn.classList.add('chosen');   // 選んだ答えを色で残す
+  markBusy(btn, '読み取り中…');
+  showError('careError', '');
+  if (isCorrection) { $('planLoading').classList.add('on'); $('planBody').classList.add('waiting'); }
+  else $('careLoading').classList.add('on');
   $('interpretBtn').disabled = true;
   document.querySelectorAll('#planBody button').forEach(function (b) { b.disabled = true; });
   return api('interpret', payload).then(function (r) {
@@ -760,10 +816,14 @@ function callInterpret(extra, isCorrection) {
     renderPlan(prev);
   }).catch(function (err) {
     showError('careError', err.message);
+    if (isCorrection) toast('読み取りに失敗しました：' + err.message);
+    unmarkBusy(btn);
     document.querySelectorAll('#planBody button').forEach(function (b) { b.disabled = false; });
   }).then(function () {
     $('careLoading').classList.remove('on');
+    $('planLoading').classList.remove('on'); $('planBody').classList.remove('waiting');
     $('interpretBtn').disabled = false;
+    unmarkBusy($('interpretBtn'));
   });
 }
 
@@ -883,7 +943,7 @@ function scheduleTable(beforeRows, afterRows, changed) {
 }
 
 function sendRequest(btn) {
-  var r = S.result; btn.disabled = true;
+  var r = S.result; btn.disabled = true; markBusy(btn, '厨房へ送っています…');
   api('submitRequest', {
     plan: r.plan, masked: r.masked, draftId: S.draftId, inputMethod: S.inputMethod,
     text: $('inputText').value.trim(), sentText: r.sentText, enteredBy: $('me').value
@@ -892,7 +952,7 @@ function sendRequest(btn) {
     S.result = null; S.image = null; S.sampleId = ''; S.inputMethod = '文';
     $('inputText').value = ''; $('photoPrev').hidden = true; $('planCard').hidden = true;
     refresh();
-  }).catch(function (err) { showError('careError', err.message); btn.disabled = false; });
+  }).catch(function (err) { showError('careError', err.message); unmarkBusy(btn); btn.disabled = false; });
 }
 
 // ---------- 厨房 ----------
