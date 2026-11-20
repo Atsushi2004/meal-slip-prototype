@@ -540,31 +540,37 @@ $('pickerBack').addEventListener('click', closePicker);
 $('pickerSearch').addEventListener('input', renderPickerList);
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('picker').classList.contains('on')) closePicker(); });
 
-// 入力が止まったら探す（文字は 0.8 秒止まったら。日本語の変換中は探さない。声は話し終えたら）
+// 入力が止まったら探して、必ずパネルを出す（文が前に出したときから変わっていれば。同じ文のままなら出し直さない）
+// - 文字：0.8 秒止まったら。日本語の変換中なら、変換が終わるのを待ってから出す（変換中に止まっても取りこぼさない）
+// - 声：話し終えたら ／ 文字の欄から離れたとき（ほかの所を押したとき）もすぐ出す
 var searchTimer = null, composing = false;
+S.picker.lastText = '';
 function searchFromText(force) {
   if (!S.data) return;
   var text = $('inputText').value.trim();
   renderMasked();
   if (!text) return;
+  if (!force && text === S.picker.lastText) return;
+  S.picker.lastText = text;
   var hits = findUsersInText(text);
-  var key = hits.length ? hits.map(function (h) { return h.user['利用者ID']; }).join(',') : 'none';
-  if (!force) {
-    if (hits.some(function (h) { return h.user['利用者ID'] === S.userId; })) return;   // 選んだ人が候補に入っていれば、出し直さない
-    if (!hits.length && S.userId) return;                                                // 名前の無い文でも、もう選んであれば出さない
-    if (key === S.picker.dismissedKey) return;                                           // 同じ候補を一度出したら、続けては出さない
-  }
-  S.picker.dismissedKey = key;
   if (hits.length) openPicker('hits', hits);
-  else { $('pickerSearch').value = ''; openPicker('all', 'none'); }
+  else openPicker('all', 'none');
+}
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function () {
+    if (composing || activeRec) { scheduleSearch(); return; }   // 変換中・録音中は、終わるまで待ち直す
+    searchFromText(false);
+  }, 800);
 }
 $('inputText').addEventListener('compositionstart', function () { composing = true; });
-$('inputText').addEventListener('compositionend', function () { composing = false; });
-$('inputText').addEventListener('input', function () {
+$('inputText').addEventListener('compositionend', function () { composing = false; scheduleSearch(); });
+$('inputText').addEventListener('input', function (e) {
+  if (e.isComposing === false) composing = false;   // 変換の終わりの合図が来ない端末でも、止まったままにしない
   renderMasked();
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(function () { if (!composing && !activeRec) searchFromText(false); }, 800);
+  scheduleSearch();
 });
+$('inputText').addEventListener('change', function () { if (!activeRec) { clearTimeout(searchTimer); searchFromText(false); } });
 
 // AIにはこう送る（GAS と同じ決まりで置き換えた文を見せる。実際の置き換えは GAS が行う）
 // 選んだ利用者は「利用者A」、話に出てきたほかの利用者は出てきた順に「利用者B」「利用者C」…、職員は「職員1」など
