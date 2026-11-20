@@ -179,6 +179,10 @@
   .plan-loading { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; font-weight: 700; position: sticky; top: calc(var(--head-h, 0px) + 8px); z-index: 2; }
   #planBody.waiting { opacity: .55; }
   .clear-row { margin-top: 6px; }
+  .plan-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; border-left: 6px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
+  .plan-who .lab { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .plan-who b { font-size: 24px; font-weight: 900; }
+  .plan-who .meta { font-size: 13px; color: var(--muted); }
   .clear-row .btn { min-height: 36px; padding: 4px 14px; font-size: 14px; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 10px; display: none; z-index: 30; }
   .toast.on { display: block; }
@@ -841,7 +845,13 @@ function renderPlan(prev) {
   var r = S.result; var p = r.plan; var body = $('planBody'); body.innerHTML = '';
   $('planCard').hidden = false;
   var u = userById(p.userId);
-  body.appendChild(el('div', { class: 'sub', text: (u ? u['氏名'] + '様' : '') + ' ／ ' + (S.inputMethod) }));
+  // だれの変更かを、いちばん上に大きく出す（送る前に人を取り違えていないか確かめられるように）
+  var who = u ? u['氏名'] + '様' : '（利用者が分かりません）';
+  body.appendChild(el('div', { class: 'plan-who' }, [
+    el('span', { class: 'lab', text: '対象の利用者' }),
+    el('b', { text: who }),
+    el('span', { class: 'meta', text: u ? u['フロア'] + '・' + u['利用区分'] + '／入力：' + S.inputMethod : '' })
+  ]));
   body.appendChild(el('div', { class: 'explain', text: p.explanation }));
   if (p.operations.length) {
     var ul = el('ul', {});
@@ -884,7 +894,7 @@ function renderPlan(prev) {
 
   // 変更前・変更後の予定表
   if (r.preview && r.preview.changed.length) {
-    body.appendChild(el('h3', { text: '予定表（色の付いたところが変わります）' }));
+    body.appendChild(el('h3', { text: who + 'の予定表（色の付いたところが変わります）' }));
     body.appendChild(el('div', { class: 'tbl-wrap' }, [scheduleTable(r.preview.before, r.preview.after, r.preview.changed, prev)]));
   }
 
@@ -900,7 +910,7 @@ function renderPlan(prev) {
   setupMic(corrMic, corr);
 
   var canSend = !pending && !r.check.errors.length && p.operations.length > 0;
-  var sendBtn = el('button', { class: 'btn', text: 'はい、厨房へ送る', onclick: function () { sendRequest(sendBtn); } });
+  var sendBtn = el('button', { class: 'btn', text: 'はい、' + who + 'の変更を厨房へ送る', onclick: function () { sendRequest(sendBtn); } });
   sendBtn.disabled = !canSend;
   body.appendChild(el('div', { class: 'row', style: 'margin-top:12px' }, [sendBtn,
     el('span', { class: 'small', text: canSend ? '' : (pending ? 'AIの質問に答えてから送れます' : '直すところがあります') })]));
