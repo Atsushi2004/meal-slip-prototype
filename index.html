@@ -5,100 +5,143 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>食事箋の入力（プロトタイプ）</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
+  /* 色・フォント・部品の見た目は、古田さんのひな形（食事変更の受付）に合わせています */
   :root {
-    --ink: #22303c; --sub: #5d6b78; --line: #d9dfe5; --bg: #f6f7f9; --card: #ffffff;
-    --accent: #2f5d7c; --accent-ink: #ffffff; --warn-bg: #fff3d6; --warn-line: #b98900;
-    --ng: #b0322b; --ng-bg: #fdecea; --ok: #1f6f43; --ok-bg: #e7f4ec; --chg: #fde8dc; --chg-line: #b05736;
+    --bg: #f1f4f9; --surface: #ffffff; --ink: #0f172a; --muted: #5b6b82; --line: #c9d3e1;
+    --accent: #1d4ed8; --on-accent: #ffffff; --accent-soft: #e3ebff;
+    --warn: #92400e; --warn-bg: #fef3c7; --danger: #b91c1c; --danger-bg: #fee2e2; --ok: #047857; --ok-bg: #d6f5e8;
+    --font: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', Meiryo, sans-serif;
   }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0b1220; --surface: #131c2e; --ink: #e6edf7; --muted: #9aa9c0; --line: #2b3a54;
+    --accent: #7aa5ff; --on-accent: #0b1220; --accent-soft: #1b2b52;
+    --warn: #fcd34d; --warn-bg: #3a2d0a; --danger: #fca5a5; --danger-bg: #431a1a; --ok: #6ee7b7; --ok-bg: #0f3a2c; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #0b1220; --surface: #131c2e; --ink: #e6edf7; --muted: #9aa9c0; --line: #2b3a54;
+    --accent: #7aa5ff; --on-accent: #0b1220; --accent-soft: #1b2b52;
+    --warn: #fcd34d; --warn-bg: #3a2d0a; --danger: #fca5a5; --danger-bg: #431a1a; --ok: #6ee7b7; --ok-bg: #0f3a2c; color-scheme: dark; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; font: 16px/1.65 "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif; color: var(--ink); background: var(--bg); }
+  body { margin: 0; font-family: var(--font); font-size: 16px; line-height: 1.6; color: var(--ink); background: var(--bg); }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  header { background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  .band { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); padding: 6px 16px; font-size: 14px; }
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 16px; }
-  .bar h1 { font-size: 18px; margin: 0 8px 0 0; }
-  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-  .tabs button { border: 1px solid var(--line); background: var(--card); padding: 8px 16px; border-radius: 8px; font-weight: 700; }
-  .tabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent); }
+
+  /* 上の帯と見出し */
+  header { background: var(--bg); position: sticky; top: 0; z-index: 5; }
+  .band { background: var(--warn-bg); color: var(--warn); padding: 8px 16px; font-size: 13px; }
+  .bar { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .bar h1 { font-size: 20px; margin: 0 8px 0 0; font-weight: 900; letter-spacing: .02em; }
+  .tabs { display: flex; gap: 4px; background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 4px; }
+  .tabs button { border: 0; background: transparent; padding: 8px 16px; border-radius: 9px; font-weight: 700; min-height: 44px; color: var(--muted); }
+  .tabs button.on { background: var(--accent); color: var(--on-accent); }
   .spacer { flex: 1; }
-  .who { display: flex; align-items: center; gap: 6px; font-size: 14px; }
-  .who select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
-  .menu-btn { border: 1px solid var(--line); background: var(--card); padding: 6px 12px; border-radius: 6px; font-size: 14px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .who { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .who select { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); min-height: 36px; }
+  .menu-btn { border: 1.5px solid var(--line); background: var(--surface); padding: 6px 14px; border-radius: 10px; font-size: 14px; font-weight: 700; min-height: 36px; }
+
+  /* カード */
+  main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 48px; }
   .page { display: none; } .page.on { display: block; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
-  h2 { font-size: 17px; margin: 0 0 10px; }
-  h3 { font-size: 15px; margin: 12px 0 6px; }
-  .sub { color: var(--sub); font-size: 14px; margin: 4px 0; }
-  .users { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
-  .user { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--card); text-align: left; }
-  .user.on { border: 2px solid var(--accent); background: #eef4f8; padding: 7px 9px; }
+  .card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em; }
+  h3 { font-size: 15px; margin: 14px 0 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 4px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+
+  /* 利用者の選択（ひな形の「選ぶボタン」） */
+  .users { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .user { border: 1.5px solid var(--line); border-radius: 12px; min-height: 56px; padding: 10px 14px; background: var(--surface); text-align: left; }
+  .user:hover { border-color: var(--accent); }
+  .user.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
   .user b { display: block; font-size: 16px; }
-  .user span { font-size: 13px; color: var(--sub); }
-  .btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 16px; }
-  .btn.sec { background: var(--card); color: var(--accent); }
-  .btn.ng { background: var(--ng); border-color: var(--ng); }
-  .btn:disabled { opacity: .45; cursor: default; }
+  .user span { font-size: 12px; color: var(--muted); }
+
+  /* ボタン */
+  .btn { border: 1.5px solid var(--accent); background: var(--accent); color: var(--on-accent); min-height: 48px; padding: 10px 22px; border-radius: 12px; font-weight: 900; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
+  .btn.sec { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: 700; }
+  .btn.sec:hover { border-color: var(--accent); }
+  .btn.ng { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 17px; background: #fff; }
-  .mic { border: 1px solid var(--accent); background: var(--card); color: var(--accent); border-radius: 999px; padding: 8px 16px; font-weight: 700; }
-  .mic.rec { background: var(--ng); border-color: var(--ng); color: #fff; }
+  textarea { width: 100%; min-height: 68px; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 17px; background: var(--bg); resize: vertical; margin-top: 10px; }
+
+  /* マイク（ひな形の大きな「話す」ボタン） */
+  .mic { border: 1.5px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 999px; padding: 8px 18px; font-weight: 700; min-height: 44px; }
+  .mic.rec { background: var(--danger); border-color: var(--danger); color: #fff; }
+  #micBtn { flex: 1 1 100%; min-height: 84px; border: 0; border-radius: 16px; background: var(--accent); color: var(--on-accent); font-size: 22px; font-weight: 900; }
+  #micBtn.rec { background: var(--danger); color: #fff; }
+
   .photo-prev { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }
-  .photo-prev img { max-width: 180px; max-height: 220px; border: 1px solid var(--line); border-radius: 6px; }
-  .note { background: var(--warn-bg); border-left: 4px solid var(--warn-line); padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 14px; }
-  .err { background: var(--ng-bg); border-left: 4px solid var(--ng); padding: 8px 12px; border-radius: 4px; margin: 8px 0; }
-  .okbox { background: var(--ok-bg); border-left: 4px solid var(--ok); padding: 8px 12px; border-radius: 4px; margin: 8px 0; }
-  .explain { font-size: 19px; font-weight: 700; margin: 4px 0 8px; }
-  .question { background: #eef4f8; border: 2px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+  .photo-prev img { max-width: 180px; max-height: 220px; border: 1px solid var(--line); border-radius: 10px; }
+
+  /* お知らせの帯（ひな形の banner） */
+  .note { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 14px; margin: 10px 0; font-size: 14px; }
+  .err { background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 10px 14px; margin: 10px 0; font-size: 14px; }
+  .okbox { background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 14px; margin: 10px 0; font-size: 14px; }
+
+  /* AIの読み取り（ひな形の「確認の文章」） */
+  .explain { border: 2px solid var(--accent); border-radius: 14px; padding: 16px 18px; background: var(--accent-soft); font-size: 19px; font-weight: 900; margin: 8px 0 12px; }
+  .question { background: var(--accent-soft); color: var(--ink); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
   .question p { margin: 0 0 8px; font-weight: 700; }
   .choices { display: flex; flex-wrap: wrap; gap: 8px; }
-  .choices button { border: 1px solid var(--accent); background: var(--card); color: var(--accent); padding: 8px 14px; border-radius: 8px; font-weight: 700; }
-  details { margin: 8px 0; }
-  summary { cursor: pointer; color: var(--sub); font-size: 14px; }
-  pre { white-space: pre-wrap; word-break: break-all; background: #f4f6f8; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; max-height: 320px; overflow: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { border: 1px solid var(--line); padding: 4px 6px; text-align: center; vertical-align: middle; }
-  th { background: #f1f3f5; font-weight: 700; }
+  .choices button { border: 1.5px solid var(--line); background: var(--surface); border-radius: 10px; min-height: 48px; padding: 8px 18px; font-weight: 700; }
+  .choices button:hover { border-color: var(--accent); }
+  details { margin: 10px 0; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  pre { white-space: pre-wrap; word-break: break-all; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; max-height: 320px; overflow: auto; }
+
+  /* 表（ひな形の tbl） */
+  table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { border-bottom: 1px solid var(--line); padding: 6px 6px; text-align: center; vertical-align: middle; }
+  th { font-size: 12px; color: var(--muted); letter-spacing: .05em; font-weight: 700; }
   td.d { text-align: left; white-space: nowrap; }
-  td.no { color: var(--sub); background: #f4f4f4; }
-  td.chg { background: var(--chg); outline: 2px solid var(--chg-line); outline-offset: -2px; font-weight: 700; }
+  td.no { color: var(--danger); background: var(--danger-bg); }
+  td.chg { background: var(--warn-bg); color: var(--warn); outline: 2px solid var(--warn); outline-offset: -2px; font-weight: 900; }
   .tbl-wrap { overflow-x: auto; }
-  .req { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: var(--card); }
+
+  /* 依頼・用語の一覧（ひな形の item） */
+  .req { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--surface); }
   .req.new { border: 2px solid var(--accent); }
-  .req .meta { font-size: 13px; color: var(--sub); }
-  .badge { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-left: 6px; }
-  .badge.late { background: var(--ng-bg); color: var(--ng); border: 1px solid var(--ng); }
-  .badge.done { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); }
-  .badge.wait { background: #eef4f8; color: var(--accent); border: 1px solid var(--accent); }
-  .loading { display: none; align-items: center; gap: 10px; padding: 10px 0; color: var(--sub); }
+  .req .meta { font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-left: 6px; }
+  .badge.late { background: var(--danger-bg); color: var(--danger); }
+  .badge.done { background: var(--ok-bg); color: var(--ok); }
+  .badge.wait { background: var(--accent-soft); color: var(--accent); }
+
+  .loading { display: none; align-items: center; gap: 10px; padding: 10px 0; color: var(--muted); }
   .loading.on { display: flex; }
   .spin { width: 20px; height: 20px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: s 1s linear infinite; }
   @keyframes s { to { transform: rotate(360deg); } }
-  .modal { position: fixed; inset: 0; background: rgba(20,30,40,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
   .modal.on { display: flex; }
-  .modal .box { background: var(--card); border-radius: 12px; padding: 18px; max-width: 900px; width: 100%; max-height: 90vh; overflow: auto; }
-  .samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .samples button { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 8px; text-align: left; font-size: 14px; }
-  .samples button span { display: block; color: var(--sub); font-size: 12px; }
-  .recent { margin-top: 8px; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; background: #fafbfc; font-size: 14px; }
-  .recent .head { font-weight: 700; color: var(--sub); margin-bottom: 4px; }
+  .modal .box { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 18px; max-width: 900px; width: 100%; max-height: 90vh; overflow: auto; }
+  .samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .samples button { border: 1.5px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 14px; text-align: left; font-size: 14px; font-weight: 700; }
+  .samples button:hover { border-color: var(--accent); }
+  .samples button span { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+
+  /* 参考：利用者の予定 */
+  .recent { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); font-size: 14px; }
+  .recent .head { font-weight: 700; color: var(--muted); margin-bottom: 4px; }
   .recent table { font-size: 13px; }
-  .recent td { padding: 3px 4px; }
+  .recent td { padding: 4px; }
   .recent tr.today td.d { font-weight: 700; color: var(--accent); }
   .recent .head.row { display: flex; align-items: center; gap: 6px; }
-  .recent .pager { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 2px 10px; color: var(--accent); }
+  .recent .pager { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; min-height: 32px; padding: 2px 12px; color: var(--accent); }
+  .recent .pager:hover:not(:disabled) { border-color: var(--accent); }
   .recent .pager:disabled { opacity: .35; cursor: default; }
   .recent .range { font-weight: 400; min-width: 7.5em; text-align: center; }
-  .recent .why { display: block; font-size: 11px; color: var(--sub); line-height: 1.3; }
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; display: none; z-index: 30; }
+  .recent .why { display: block; font-size: 11px; color: var(--muted); line-height: 1.3; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 10px; display: none; z-index: 30; }
   .toast.on { display: block; }
-  .small { font-size: 13px; color: var(--sub); }
-  input[type=text], input[type=password] { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
-  @media (max-width: 640px) { main { padding: 10px; } .bar h1 { font-size: 16px; } .explain { font-size: 17px; } }
+  input[type=text], input[type=password] { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 48px; width: 100%; background: var(--bg); }
+  @media (max-width: 640px) { header { position: static; } main { padding: 10px 10px 40px; } .bar h1 { font-size: 17px; } .explain { font-size: 17px; } #micBtn { font-size: 19px; min-height: 72px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
@@ -549,7 +592,7 @@ function renderPlan(prev) {
   // 直す
   var corr = el('textarea', { rows: 2, placeholder: '例：違う、今回だけじゃなくて、これからずっと' });
   var corrMic = el('button', { class: 'mic', text: '🎤 話す' });
-  var corrBox = el('div', { class: 'card', style: 'background:#fafbfc;margin-top:12px' }, [
+  var corrBox = el('div', { class: 'card', style: 'background:var(--bg);margin-top:12px' }, [
     el('h3', { text: '直す（話すか、書いてください）' }), el('div', { class: 'row' }, [corrMic]), corr,
     el('div', { class: 'row', style: 'margin-top:8px' }, [el('button', { class: 'btn sec', text: '直しを伝える', onclick: function () {
       var c = corr.value.trim(); if (!c) return; callInterpret({ correction: c }, true);
