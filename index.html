@@ -137,6 +137,39 @@
   .recent .range { font-weight: 400; min-width: 7.5em; text-align: center; }
   .recent .why { display: block; font-size: 11px; color: var(--muted); line-height: 1.3; }
 
+  /* 対象の利用者と、AIに送る文 */
+  .target { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--surface); }
+  .target .lab { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .target #targetName { font-size: 18px; font-weight: 900; }
+  .target #targetName.none { font-size: 15px; font-weight: 400; color: var(--muted); }
+  .target .btn { min-height: 44px; }
+  .btn.go { flex: 1 1 100%; min-height: 56px; font-size: 18px; }
+  .masked { margin-top: 8px; border-radius: 10px; padding: 10px 14px; background: var(--bg); border: 1px dashed var(--line); font-size: 14px; }
+  .masked b { color: var(--muted); font-size: 12px; display: block; }
+
+  /* 右から出る候補パネル（タブレットを想定。100人ほどでも探せるよう、絞り込みとフロアで絞る） */
+  .picker-back { position: fixed; inset: 0; background: rgba(15,23,42,.35); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 24; }
+  .picker-back.on { opacity: 1; pointer-events: auto; }
+  .picker { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 92vw); background: var(--surface); border-left: 1.5px solid var(--line); box-shadow: -8px 0 24px rgba(15,23,42,.18); z-index: 25; transform: translateX(105%); transition: transform .25s ease; display: flex; flex-direction: column; gap: 10px; padding: 16px; overflow: hidden; }
+  .picker.on { transform: translateX(0); }
+  .picker-head { display: flex; align-items: center; gap: 8px; }
+  .picker-head h2 { margin: 0; font-size: 18px; color: var(--ink); font-weight: 900; }
+  .picker-msg { font-size: 14px; }
+  .picker-msg:empty { display: none; }
+  #pickerAll { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+  #pickerAll[hidden] { display: none !important; }
+  .floors { display: flex; flex-wrap: wrap; gap: 6px; }
+  .floors button { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 14px; font-size: 13px; font-weight: 700; min-height: 36px; }
+  .floors button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .picker-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+  .cand { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 14px; text-align: left; min-height: 56px; }
+  .cand:hover { border-color: var(--accent); }
+  .cand.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .cand b { display: block; font-size: 17px; }
+  .cand span { font-size: 12px; color: var(--muted); }
+  .cand mark { background: var(--warn-bg); color: inherit; border-radius: 3px; padding: 0 2px; }
+  #pickerHits { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .link { border: 0; background: none; color: var(--accent); text-decoration: underline; font-size: 14px; padding: 6px 0; text-align: left; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 10px; display: none; z-index: 30; }
   .toast.on { display: block; }
   input[type=text], input[type=password] { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 48px; width: 100%; background: var(--bg); }
@@ -164,12 +197,7 @@
   <!-- 介護職員 -->
   <section class="page on" id="care">
     <div class="card">
-      <h2>1. だれの食事ですか</h2>
-      <div class="users" id="userList"></div>
-    </div>
-
-    <div class="card">
-      <h2>2. 変更を伝える（話す・写真・文字）</h2>
+      <h2>1. 変更を伝える（話す・写真・文字）</h2>
       <div class="row">
         <button class="mic" id="micBtn">🎤 話す</button>
         <button class="btn sec" id="sampleBtn">見本の食事箋から選ぶ</button>
@@ -178,8 +206,7 @@
       </div>
       <p class="sub" id="micHint"></p>
       <p class="note">カメラで撮るときは、<b>実名の入った紙は撮らないでください。</b>撮った写真は外部のAIに送られます（保存はしません）。</p>
-      <textarea id="inputText" rows="3" placeholder="例：明日の夕方から外泊がなくなったので、夕食から食べます"></textarea>
-      <div class="recent" id="recentBox" hidden></div>
+      <textarea id="inputText" rows="3" placeholder="例：佐藤さん、明日の夕方から外泊がなくなったので、夕食から食べます"></textarea>
       <div class="photo-prev" id="photoPrev" hidden>
         <img id="photoImg" alt="入れた写真">
         <div>
@@ -187,15 +214,23 @@
           <button class="btn sec" id="photoClear">写真を外す</button>
         </div>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button class="btn" id="interpretBtn">AIに読み取ってもらう</button>
+      <div class="target" id="targetBox">
+        <span class="lab">対象の利用者</span>
+        <span id="targetName" class="none">まだ選んでいません</span>
+        <span class="spacer"></span>
+        <button class="btn sec" id="pickManual">人を手動で選ぶ</button>
       </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn go" id="interpretBtn">AIに読み取ってもらう</button>
+      </div>
+      <div class="masked" id="maskedBox" hidden></div>
       <div class="loading" id="careLoading"><div class="spin"></div><span>AIが今の予定と照らして考えています…（10〜40秒ほど）</span></div>
       <div id="careError"></div>
+      <div class="recent" id="recentBox" hidden></div>
     </div>
 
     <div class="card" id="planCard" hidden>
-      <h2>3. AIの読み取り（変更案）</h2>
+      <h2>2. AIの読み取り（変更案）</h2>
       <div id="planBody"></div>
     </div>
   </section>
@@ -270,6 +305,25 @@
   </div>
 </div>
 
+<!-- 利用者の候補（右から出るパネル） -->
+<div class="picker-back" id="pickerBack"></div>
+<aside class="picker" id="picker" aria-hidden="true">
+  <div class="picker-head">
+    <h2>利用者を選ぶ</h2>
+    <span class="spacer"></span>
+    <button class="btn sec" id="pickerClose">閉じる</button>
+  </div>
+  <div class="picker-msg" id="pickerMsg"></div>
+  <div id="pickerHits"></div>
+  <div id="pickerAll">
+    <input type="text" id="pickerSearch" placeholder="名前・読みで絞り込む（例：さとう）" autocomplete="off">
+    <div class="floors" id="pickerFloors"></div>
+    <div class="small" id="pickerCount"></div>
+    <div class="picker-list" id="pickerList"></div>
+  </div>
+  <button class="link" id="pickerShowAll" hidden>ほかの人を探す（全員から選ぶ）</button>
+</aside>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -342,7 +396,7 @@ function start() {
 
 function applyState(data) {
   S.data = data;
-  renderMe(); renderUsers(); renderRecent(); renderKitchen(); renderGlossary();
+  renderMe(); renderTarget(); renderRecent(); renderMasked(); renderKitchen(); renderGlossary();
   $('aiInfo').textContent = '呼び出し口：' + data.provider + '／モデル：' + data.model;
   $('otherCount').textContent = data.otherCount;
 }
@@ -366,16 +420,177 @@ function renderMe() {
 }
 $('me').addEventListener('change', function () { store('meal-slip-me', $('me').value); });
 
-// ---------- 介護職員 ----------
-function renderUsers() {
-  var box = $('userList'); box.innerHTML = '';
-  S.data.users.forEach(function (u) {
-    var b = el('button', { class: 'user' + (u['利用者ID'] === S.userId ? ' on' : ''), onclick: function () { S.userId = u['利用者ID']; S.recentOffset = 0; renderUsers(); renderRecent(); } }, [
-      el('b', { text: u['氏名'] }),
-      el('span', { text: u['フロア'] + '・' + u['利用区分'] + (u['利用終了日'] && u['利用終了日'] < S.data.today ? '・利用終了' : '') })
-    ]);
-    box.appendChild(b);
+// ---------- 介護職員：利用者の選び方 ----------
+// 入力の文から、名簿の名前をキーワードで探す（生成AIは使わない）。
+// 見つかった人を右のパネルに候補として出し、職員が1人を選ぶ。候補が1人でも自動では決めない。
+
+// 「山田 花子」→ 山田花子・山田 花子・山田・花子。読みは、ひらがなとカタカナの両方（2文字以上だけ。GAS のマスクと同じ決まり）
+function toKatakana(s) { return s.replace(/[ぁ-ゖ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) + 0x60); }); }
+function toHiragana(s) { return s.replace(/[ァ-ヶ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0x60); }); }
+function nameVariants(name, reading) {
+  var out = [];
+  [name, reading].forEach(function (n) {
+    if (!n) return;
+    var parts = n.split(/[\s　]+/).filter(Boolean);
+    out.push(n, parts.join(''), parts.join('　'));
+    parts.forEach(function (p) { out.push(p); });
+    if (n === reading) {
+      out.push(toKatakana(n), toKatakana(parts.join('')));
+      parts.forEach(function (p) { out.push(toKatakana(p)); });
+    }
   });
+  return Array.from(new Set(out.filter(function (v) { return v && v.length >= 2; })));
+}
+
+// 文の中に出てくる利用者を探す。長く一致した人ほど上に並べる（フルネーム ＞ 姓だけ）
+function findUsersInText(text) {
+  var t = (text || '').replace(/[\s　]+/g, '');
+  if (!t) return [];
+  var hits = [];
+  S.data.users.forEach(function (u) {
+    var best = '';
+    nameVariants(u['氏名'], u['読み']).forEach(function (v) {
+      var vv = v.replace(/[\s　]+/g, '');
+      if (t.indexOf(vv) >= 0 && vv.length > best.length) best = vv;
+    });
+    if (best) {
+      var full = [u['氏名'], u['読み'], toKatakana(u['読み'] || '')].map(function (x) { return x.replace(/[\s　]+/g, ''); });
+      hits.push({ user: u, word: best, full: full.indexOf(best) >= 0 });
+    }
+  });
+  // フルネームで一致した人がいれば、その人だけにする（姓だけ・名だけで一致した人は出さない）
+  if (hits.some(function (x) { return x.full; })) hits = hits.filter(function (x) { return x.full; });
+  hits.sort(function (a, b) { return b.word.length - a.word.length || a.user['読み'].localeCompare(b.user['読み'], 'ja'); });
+  return hits;
+}
+
+function isEnded(u) { return u['利用終了日'] && u['利用終了日'] < S.data.today; }
+function candButton(u, word) {
+  var name = u['氏名'];
+  var nameEl = el('b', {});
+  var j = word ? name.indexOf(word) : -1;
+  if (word && j < 0 && name.replace(/[\s　]+/g, '') === word) { word = name; j = 0; }   // 「佐藤花子」と書かれたら「佐藤 花子」全体に印
+  if (j >= 0) {
+    nameEl.appendChild(document.createTextNode(name.slice(0, j)));
+    nameEl.appendChild(el('mark', { text: word }));
+    nameEl.appendChild(document.createTextNode(name.slice(j + word.length)));
+  } else nameEl.textContent = name;
+  return el('button', { class: 'cand' + (u['利用者ID'] === S.userId ? ' on' : ''), onclick: function () { chooseUser(u['利用者ID']); } }, [
+    nameEl,
+    el('span', { text: u['読み'] + '／' + u['フロア'] + '・' + u['利用区分'] + (isEnded(u) ? '・利用終了' : '') + (word && j < 0 ? '／「' + word + '」で一致' : '') })
+  ]);
+}
+
+S.picker = { floor: '', dismissedKey: '' };
+function openPicker(mode, hits) {
+  // mode：'hits'＝入力から見つかった候補だけ／'all'＝全員から探す（hits が 'none' なら「見つからなかった」と添える）
+  var msg = $('pickerMsg'); msg.innerHTML = ''; msg.className = 'picker-msg';
+  var hitBox = $('pickerHits'); hitBox.innerHTML = '';
+  if (mode === 'hits') {
+    msg.textContent = '入力から ' + hits.length + ' 人の候補が見つかりました。対象の方を1人選んでください。';
+    hits.forEach(function (h) { hitBox.appendChild(candButton(h.user, h.word)); });
+    $('pickerAll').hidden = true; $('pickerShowAll').hidden = false;
+  } else {
+    if (hits === 'none') { msg.className = 'picker-msg note'; msg.textContent = '入力の中に、名簿の名前が見つかりませんでした。下の一覧から選んでください。'; }
+    $('pickerAll').hidden = false; $('pickerShowAll').hidden = true;
+    S.picker.floor = ''; $('pickerSearch').value = '';   // 開くたびに、すべての人・絞り込み無しから
+    renderPickerList();
+  }
+  hitBox.hidden = mode !== 'hits';
+  $('picker').classList.add('on'); $('picker').setAttribute('aria-hidden', 'false');
+  $('pickerBack').classList.add('on');
+}
+function closePicker() {
+  $('picker').classList.remove('on'); $('picker').setAttribute('aria-hidden', 'true');
+  $('pickerBack').classList.remove('on');
+}
+function renderPickerList() {
+  var floors = Array.from(new Set(S.data.users.map(function (u) { return u['フロア']; }))).sort();
+  var fb = $('pickerFloors'); fb.innerHTML = '';
+  [''].concat(floors).forEach(function (f) {
+    fb.appendChild(el('button', { class: S.picker.floor === f ? 'on' : '', text: f || 'すべて', onclick: function () { S.picker.floor = f; renderPickerList(); } }));
+  });
+  var q = $('pickerSearch').value.replace(/[\s　]+/g, '');
+  var qh = toHiragana(q);
+  var list = S.data.users.filter(function (u) {
+    if (S.picker.floor && u['フロア'] !== S.picker.floor) return false;
+    if (!q) return true;
+    return u['氏名'].replace(/[\s　]+/g, '').indexOf(q) >= 0 || toHiragana(u['読み'].replace(/[\s　]+/g, '')).indexOf(qh) >= 0;
+  }).sort(function (a, b) { return a['読み'].localeCompare(b['読み'], 'ja'); });
+  $('pickerCount').textContent = list.length + ' 人（読みの順）';
+  var box = $('pickerList'); box.innerHTML = '';
+  list.forEach(function (u) { box.appendChild(candButton(u, '')); });
+  if (!list.length) box.appendChild(el('p', { class: 'sub', text: '当てはまる人がいません。' }));
+}
+function chooseUser(id) {
+  S.userId = id; S.recentOffset = 0;
+  closePicker(); renderTarget(); renderRecent(); renderMasked();
+  showError('careError', '');
+}
+function renderTarget() {
+  var u = S.userId && userById(S.userId);
+  var n = $('targetName');
+  n.className = u ? '' : 'none';
+  n.textContent = u ? u['氏名'] + '様（' + u['フロア'] + '・' + u['利用区分'] + (isEnded(u) ? '・利用終了' : '') + '）' : 'まだ選んでいません';
+}
+$('pickManual').addEventListener('click', function () { $('pickerSearch').value = ''; openPicker('all'); setTimeout(function () { $('pickerSearch').focus(); }, 250); });
+$('pickerShowAll').addEventListener('click', function () { $('pickerSearch').value = ''; openPicker('all'); });
+$('pickerClose').addEventListener('click', closePicker);
+$('pickerBack').addEventListener('click', closePicker);
+$('pickerSearch').addEventListener('input', renderPickerList);
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('picker').classList.contains('on')) closePicker(); });
+
+// 入力が止まったら探す（文字は 0.8 秒止まったら。日本語の変換中は探さない。声は話し終えたら）
+var searchTimer = null, composing = false;
+function searchFromText(force) {
+  if (!S.data) return;
+  var text = $('inputText').value.trim();
+  renderMasked();
+  if (!text) return;
+  var hits = findUsersInText(text);
+  var key = hits.length ? hits.map(function (h) { return h.user['利用者ID']; }).join(',') : 'none';
+  if (!force) {
+    if (hits.some(function (h) { return h.user['利用者ID'] === S.userId; })) return;   // 選んだ人が候補に入っていれば、出し直さない
+    if (!hits.length && S.userId) return;                                                // 名前の無い文でも、もう選んであれば出さない
+    if (key === S.picker.dismissedKey) return;                                           // 同じ候補を一度出したら、続けては出さない
+  }
+  S.picker.dismissedKey = key;
+  if (hits.length) openPicker('hits', hits);
+  else { $('pickerSearch').value = ''; openPicker('all', 'none'); }
+}
+$('inputText').addEventListener('compositionstart', function () { composing = true; });
+$('inputText').addEventListener('compositionend', function () { composing = false; });
+$('inputText').addEventListener('input', function () {
+  renderMasked();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function () { if (!composing && !activeRec) searchFromText(false); }, 800);
+});
+
+// AIにはこう送る（GAS と同じ決まりで、名前を「利用者A」「職員1」に置き換えた文を見せる。実際の置き換えは GAS が行う）
+function maskForPreview(text) {
+  var ordered = S.data.users.filter(function (u) { return u['利用者ID'] === S.userId; })
+    .concat(S.data.users.filter(function (u) { return u['利用者ID'] !== S.userId; }));
+  var pairs = [];
+  ordered.forEach(function (u, i) {
+    var alias = '利用者' + String.fromCharCode(65 + i);
+    nameVariants(u['氏名'], u['読み']).forEach(function (v) { pairs.push([v, alias]); });
+  });
+  S.data.staff.forEach(function (s, i) {
+    nameVariants(s['氏名'], s['読み']).forEach(function (v) { pairs.push([v, '職員' + (i + 1)]); });
+  });
+  pairs.sort(function (a, b) { return b[0].length - a[0].length; });
+  var t = text;
+  pairs.forEach(function (p) { t = t.split(p[0]).join(p[1]); });
+  return t;
+}
+function renderMasked() {
+  var box = $('maskedBox');
+  var text = $('inputText').value.trim();
+  if (!S.data || !S.userId || !text) { box.hidden = true; return; }
+  box.innerHTML = '';
+  box.appendChild(el('b', { text: 'AIにはこう送ります（名前は伏せて「利用者A」などに置き換えます）' }));
+  box.appendChild(el('div', { text: maskForPreview(text) }));
+  box.hidden = false;
 }
 
 // 参考：選んだ利用者の予定を、文字の欄の下に RECENT_DAYS 日ずつ出す（初めは今日から。前後に送れる）
@@ -444,7 +659,7 @@ function setupMic(button, target, onStart) {
       target.value = base + finalText + interim;
     };
     rec.onerror = function (ev) { toast('音声認識のエラー：' + ev.error); };
-    rec.onend = function () { activeRec = null; button.classList.remove('rec'); button.textContent = '🎤 話す'; };
+    rec.onend = function () { activeRec = null; button.classList.remove('rec'); button.textContent = '🎤 話す'; if (target === $('inputText')) searchFromText(false); };
     rec.start(); activeRec = rec;
     button.classList.add('rec'); button.textContent = '■ 止める';
     if (onStart) onStart();
@@ -498,7 +713,7 @@ $('photoClear').addEventListener('click', function () { S.image = null; S.sample
 // AIに読み取ってもらう（初回）
 $('interpretBtn').addEventListener('click', function () {
   showError('careError', '');
-  if (!S.userId) { showError('careError', '先に「だれの食事ですか」で利用者を選んでください'); return; }
+  if (!S.userId) { showError('careError', '対象の利用者を選んでください'); searchFromText(true); if (!$('picker').classList.contains('on')) openPicker('all'); return; }
   var text = $('inputText').value.trim();
   if (!text && !S.image && !S.sampleId) { showError('careError', '話すか、写真を入れるか、文字を入れてください'); return; }
   if (S.inputMethod === '文' && text && !S.image && !S.sampleId) S.inputMethod = '文';
