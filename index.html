@@ -102,6 +102,12 @@
   td.no { color: var(--danger); background: var(--danger-bg); }
   td.chg { background: var(--warn-bg); color: var(--warn); outline: 2px solid var(--warn); outline-offset: -2px; font-weight: 900; }
   .tbl-wrap { overflow-x: auto; }
+  /* 変更案の表：押して○×を手で直せるマス。手で直したマスは点線で囲む */
+  td.tap { cursor: pointer; }
+  td.tap:hover { filter: brightness(.95); }
+  td.edited { outline: 2px dashed var(--accent); outline-offset: -3px; }
+  td.edited::after { content: ' ✎'; font-size: 12px; color: var(--accent); }
+  .memo { min-height: 56px; font-size: 16px; }
 
   /* 依頼・用語の一覧（ひな形の item） */
   .req { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--surface); }
@@ -567,6 +573,7 @@ function searchFromText(force) {
   var text = $('inputText').value.trim();
   renderMasked();
   if (!text) return;
+  if (S.userId && !force) return;   // 一度選んだら、文を直してもパネルは出さない（選び直すときは「人を手動で選ぶ」）
   if (!force && text === S.picker.lastText) return;
   S.picker.lastText = text;
   var hits = findUsersInText(text);
@@ -860,6 +867,7 @@ function renderPlan(prev) {
     body.appendChild(ul);
   }
   body.appendChild(el('p', { class: 'sub', text: 'そう読んだ理由：' + p.rationale }));
+  if (r.answered) body.appendChild(el('div', { class: 'okbox', text: 'AIの質問「' + r.answered.question + '」に「' + r.answered.answer + '」と答えました。' }));
   r.check.errors.forEach(function (m) { body.appendChild(el('div', { class: 'err', text: m })); });
   r.check.warnings.forEach(function (m) { body.appendChild(el('div', { class: 'note', text: m })); });
 
@@ -869,7 +877,14 @@ function renderPlan(prev) {
     pending = true;
     var q = el('div', { class: 'question' }, [el('p', { text: '🤔 ' + p.question.text })]);
     var ch = el('div', { class: 'choices' });
-    p.question.choices.forEach(function (c) { ch.appendChild(el('button', { text: c, onclick: function () { callInterpret({ correction: c }, true); } })); });
+    // 選択肢には、選んだときの変更案が最初から付いている。押したらAIを呼ばずにその案に切り替える。
+    // 答えだけでは中身が決まらない選択肢（followUp）だけ、もう一度AIに考えてもらう
+    p.question.choices.forEach(function (c) {
+      ch.appendChild(el('button', { text: c.label, onclick: function () {
+        if (c.followUp) callInterpret({ correction: c.label }, true);
+        else applyChoice(c);
+      } }));
+    });
     // 選択肢の最後に「話す」。押すと下の「直す」の欄が画面のいちばん下に来るまで送り、そのまま録音を始める
     // （画面のマイクが使えない端末では「書いて答える」にして、書く欄にカーソルを置く）
     ch.appendChild(el('button', { class: 'speak', text: Rec ? '🎤 話す' : '✏ 書いて答える', onclick: function () {
@@ -900,10 +915,27 @@ function renderPlan(prev) {
     body.appendChild(box);
   });
 
-  // 変更前・変更後の予定表
-  if (r.preview && r.preview.changed.length) {
+  // 変更前・変更後の予定表。AIの質問に答え終えたら、マスを押して○×を手で直せる
+  r.edits = r.edits || {};
+  var editable = !pending && !!r.preview;
+  var tblBox = el('div', { class: 'tbl-wrap' });
+  var editNote = el('p', { class: 'small' });
+  function drawPlanTable() {
+    tblBox.innerHTML = ''; tblBox.appendChild(planTable(r, editable, drawPlanTable));
+    var sum = editsSummary(r);
+    editNote.textContent = sum ? '手で直した所：' + sum + '（厨房への説明の後ろに添えて送ります）' : '';
+  }
+  if (r.preview && (r.preview.changed.length || editable)) {
     body.appendChild(el('h3', { text: who + 'の予定表（色の付いたところが変わります）' }));
-    body.appendChild(el('div', { class: 'tbl-wrap' }, [scheduleTable(r.preview.before, r.preview.after, r.preview.changed, PLAN_DAYS)]));
+    if (editable) body.appendChild(el('p', { class: 'sub', text: 'マスを押すと、○（食べる）と×（食べない）を手で直せます。点線のマスが手で直した所です。' }));
+    body.appendChild(tblBox); body.appendChild(editNote);
+    drawPlanTable();
+  }
+  // 厨房への説明（依頼全体の説明）。AIの文を初めに入れ、送る前に直せる
+  if (editable) {
+    if (r.memo == null) r.memo = p.explanation;
+    body.appendChild(el('h3', { text: '厨房への説明（直せます）' }));
+    body.appendChild(el('textarea', { class: 'memo', rows: 2, oninput: function (e) { r.memo = e.target.value; } }, [r.memo]));
   }
 
   // 直す
@@ -970,15 +1002,98 @@ function scheduleTable(beforeRows, afterRows, changed, maxDays) {
   return tbl;
 }
 
+// 選択肢を選んだ：AIを呼ばずに、その選択肢に付いていた変更案に切り替える
+function applyChoice(c) {
+  var r = S.result, p = r.plan;
+  S.result = Object.assign({}, r, {
+    masked: Object.assign({}, r.masked, { operations: c.operations, explanation: c.maskedExplanation, question: { text: '', choices: [] } }),
+    plan: Object.assign({}, p, { operations: c.operations, explanation: c.explanation, question: { text: '', choices: [] } }),
+    check: c.check, preview: c.preview, answered: { question: p.question.text, answer: c.label },
+    edits: {}, memo: null
+  });
+  renderPlan(r);
+}
+
+// 変更案の表。手で直したマス（r.edits：'日付#食事' → 'はい'／'いいえ'）を、AIの案の上に重ねて出す
+function manualReason(r) {
+  var op = r.plan.operations.find(function (o) { return o.kind === '中止を登録' && o.reason; });
+  return op ? op.reason : '中止';
+}
+function finalRow(r, d, m) {
+  var a = r.preview.after.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+  var k = d + '#' + m;
+  if (!a || !(k in r.edits)) return a;
+  var eat = r.edits[k];
+  return Object.assign({}, a, { '食べる': eat, '理由': eat === 'はい' ? '' : manualReason(r) });
+}
+function editKeys(r) {
+  return Object.keys(r.edits || {}).sort(function (a, b) {
+    var pa = a.split('#'), pb = b.split('#');
+    return pa[0] < pb[0] ? -1 : pa[0] > pb[0] ? 1 : S.data.meals.indexOf(pa[1]) - S.data.meals.indexOf(pb[1]);
+  });
+}
+function editsSummary(r) {
+  return editKeys(r).map(function (k) {
+    var p = k.split('#'); return md(p[0]) + '（' + wd(p[0]) + '）' + p[1] + 'は' + (r.edits[k] === 'はい' ? '○' : '×');
+  }).join('、');
+}
+// 手で直したマスを、1食ずつの操作にする（AIの操作の後ろに足すので、後から当たるこちらが勝つ）
+function manualOps(r) {
+  return editKeys(r).map(function (k) {
+    var p = k.split('#'), eat = r.edits[k] === 'はい';
+    return { kind: eat ? '利用を始める' : '中止を登録', startDate: p[0], startMeal: p[1], endDate: p[0], endMeal: p[1], meals: [p[1]],
+      item: '', newValue: '', reason: eat ? '' : manualReason(r), cancelRequestId: '' };
+  });
+}
+function planTable(r, editable, onChange) {
+  var before = r.preview.before, days = S.data.days, n = PLAN_DAYS;
+  r.preview.changed.concat(Object.keys(r.edits)).forEach(function (k) { var i = days.indexOf(k.split('#')[0]); if (i + 1 > n) n = i + 1; });
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  days.slice(0, n).forEach(function (d) {
+    var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
+    S.data.meals.forEach(function (m) {
+      var k = d + '#' + m;
+      var a = finalRow(r, d, m);
+      var b = before.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      var isChg = a && b && ['食べる', '主食', '主食の量', '副食', 'おやつ'].some(function (c) { return a[c] !== b[c]; });
+      var cls = [isChg ? 'chg' : (a && a['食べる'] !== 'はい' ? 'no' : '')];
+      if (k in r.edits) cls.push('edited');
+      if (editable && a) cls.push('tap');
+      var td = el('td', { class: cls.join(' '), text: a ? cellText(a, b) : '' });
+      if (a && a['食べる'] !== 'はい' && a['理由']) td.title = a['理由'];
+      if (editable && a) td.addEventListener('click', function () {
+        if ($('planBody').classList.contains('waiting')) return;   // 読み直し中は直さない
+        var ai = r.preview.after.find(function (x) { return x['日付'] === d && x['食事'] === m; })['食べる'];
+        var next = a['食べる'] === 'はい' ? 'いいえ' : 'はい';
+        if (next === ai) delete r.edits[k]; else r.edits[k] = next;
+        onChange();
+      });
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+  return tbl;
+}
+
 function sendRequest(btn) {
-  var r = S.result; btn.disabled = true; markBusy(btn, '厨房へ送っています…');
+  var r = S.result;
+  var memo = (r.memo != null ? r.memo : r.plan.explanation).trim();
+  if (!memo) { showError('careError', '厨房への説明が空です。説明を入れてから送ってください'); toast('厨房への説明が空です'); return; }
+  var sum = editsSummary(r);
+  var ops = r.plan.operations.concat(manualOps(r));
+  var plan = Object.assign({}, r.plan, { operations: ops, explanation: memo + (sum ? '／手で直した所：' + sum : '') });
+  btn.disabled = true; markBusy(btn, '厨房へ送っています…');
   api('submitRequest', {
-    plan: r.plan, masked: r.masked, draftId: S.draftId, inputMethod: S.inputMethod,
+    plan: plan, masked: Object.assign({}, r.masked, { operations: ops }), draftId: S.draftId, inputMethod: S.inputMethod,
     text: $('inputText').value.trim(), sentText: r.sentText, enteredBy: $('me').value
   }).then(function (d) {
-    toast('厨房へ送りました（依頼 ' + d.requestId + '）');
+    toast('厨房へ送りました（依頼 ' + d.requestId + '）' + (d.late ? '。締め切りを過ぎた食事があります。厨房へ電話で一報を入れてください' : ''));
     S.result = null; S.image = null; S.sampleId = ''; S.inputMethod = '文';
     $('inputText').value = ''; $('photoPrev').hidden = true; $('planCard').hidden = true;
+    // 次の連絡は別の方のことがあるので、対象の利用者を空に戻す（次に話したら、また候補のパネルが出る）
+    S.userId = ''; S.recentOffset = 0; S.picker.lastText = '';
+    renderTarget(); renderRecent(); renderMasked();
     refresh();
   }).catch(function (err) { showError('careError', err.message); unmarkBusy(btn); btn.disabled = false; });
 }
