@@ -74,6 +74,7 @@
   .mic.rec { background: var(--danger); border-color: var(--danger); color: #fff; }
   #micBtn { flex: 1 1 100%; min-height: 84px; border: 0; border-radius: 16px; background: var(--accent); color: var(--on-accent); font-size: 22px; font-weight: 900; }
   #micBtn.rec { background: var(--danger); color: #fff; }
+  #micBtn.quiet:not(.rec) { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); font-size: 19px; }
 
   .photo-prev { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }
   .photo-prev img { max-width: 180px; max-height: 220px; border: 1px solid var(--line); border-radius: 10px; }
@@ -115,6 +116,8 @@
   .said { font-size: 13px; color: var(--muted); margin-top: 10px; border-left: 3px solid var(--line); padding-left: 10px; }
   .said b { font-weight: 700; }
   .pre { white-space: pre-line; }
+  .req-detail { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .req-detail ul { margin: 4px 0 8px; padding-left: 20px; font-size: 14px; }
 
   /* 依頼・用語の一覧（ひな形の item） */
   .req { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--surface); }
@@ -437,7 +440,7 @@ function start() {
 
 function applyState(data) {
   S.data = data;
-  renderMe(); renderTarget(); renderRecent(); renderMasked(); renderKitchen(); renderGlossary();
+  renderMe(); renderTarget(); renderRecent(); renderMasked(); renderKitchen(); renderGlossary(); updateFlow();
   $('aiInfo').textContent = '呼び出し口：' + data.provider + '／モデル：' + data.model;
   $('otherCount').textContent = data.otherCount;
 }
@@ -621,6 +624,7 @@ function scheduleSearch() {
 $('inputText').addEventListener('compositionstart', function () { composing = true; });
 $('inputText').addEventListener('compositionend', function () { composing = false; scheduleSearch(); });
 $('inputText').addEventListener('input', function (e) {
+  updateFlow();
   if (e.isComposing === false) composing = false;   // 変換の終わりの合図が来ない端末でも、止まったままにしない
   renderMasked();
   scheduleSearch();
@@ -803,7 +807,7 @@ function renderRecent() {
 // 厨房へ送るボタン：送れないときは、その理由を横に出す
 function updateSend() {
   var btn = $('sendBtn'), hint = $('sendHint'), u = S.userId && userById(S.userId);
-  if (!u) return;
+  if (!u) { updateFlow(); return; }
   var ops = aiOps().concat(manualOps());
   var why = '';
   if (isPending()) why = 'AIの質問に答えてから送れます';
@@ -812,6 +816,24 @@ function updateSend() {
   if (!btn.classList.contains('busy')) btn.textContent = 'はい、' + u['氏名'] + '様の変更を厨房へ送る';
   btn.disabled = !!why || btn.classList.contains('busy');
   hint.textContent = why;
+  updateFlow();
+}
+
+// 次に押すべきボタンだけを青くする（ほかは白地のボタンにする）
+//  何も入っていない → 話す ／ 文や写真が入って人がまだ → 人を手動で選ぶ ／ 人も選んだ → AIに読み取ってもらう（直してもらう）
+//  AIの質問が残っている → 質問の選択肢（青いボタンは無し） ／ 送れる → 厨房へ送る
+function updateFlow() {
+  var hasInput = !!($('inputText').value.trim() || S.image || S.sampleId);
+  var canSend = !!S.userId && !$('sendBtn').disabled && !$('sendBtn').classList.contains('busy');
+  var next = '';
+  if (activeRec) next = '';                                  // 録音中は「止める」（赤）だけ
+  else if (hasInput && !S.userId) next = 'pickManual';
+  else if (hasInput) next = 'interpretBtn';
+  else if (isPending()) next = '';
+  else if (canSend) next = 'sendBtn';
+  else if (!S.userId || !hasPlan()) next = 'micBtn';
+  ['pickManual', 'interpretBtn', 'sendBtn'].forEach(function (id) { $(id).classList.toggle('sec', id !== next); });
+  $('micBtn').classList.toggle('quiet', next !== 'micBtn');
 }
 $('sendBtn').addEventListener('click', function () { sendRequest($('sendBtn')); });
 
@@ -835,6 +857,7 @@ function updateMainLabels() {
   if (!ib.classList.contains('busy')) ib.textContent = after ? 'AIに直してもらう' : 'AIに読み取ってもらう';
   $('inputText').placeholder = after ? '直したいことを話すか書いて、「AIに直してもらう」を押してください（例：昼からではなく、夕から）'
     : '例：佐藤さん、明日の夕方から外泊がなくなったので、夕食から食べます';
+  updateFlow();
 }
 
 // 変更時メモに、AIの説明を足す（上書きせず、毎回いちばん下に足す）
@@ -878,9 +901,9 @@ function setupMic(button, target, onStart) {
       target.value = base + finalText + interim;
     };
     rec.onerror = function (ev) { toast('音声認識のエラー：' + ev.error); };
-    rec.onend = function () { activeRec = null; button.classList.remove('rec'); button.textContent = button.dataset.idle || '🎤 話す'; if (target === $('inputText')) searchFromText(false); };
+    rec.onend = function () { activeRec = null; button.classList.remove('rec'); button.textContent = button.dataset.idle || '🎤 話す'; updateFlow(); if (target === $('inputText')) searchFromText(false); };
     rec.start(); activeRec = rec;
-    button.classList.add('rec'); button.textContent = '■ 止める';
+    button.classList.add('rec'); button.textContent = '■ 止める'; updateFlow();
     if (onStart) onStart();
   });
   return true;
@@ -928,14 +951,14 @@ function shrink(file, longSide, quality) {
     img.src = url;
   });
 }
-function showPhoto(src, label) { $('photoImg').src = src; $('photoLabel').textContent = label; $('photoPrev').hidden = false; }
+function showPhoto(src, label) { $('photoImg').src = src; $('photoLabel').textContent = label; $('photoPrev').hidden = false; updateFlow(); }
 // 入力を消す：文・写真・AIの読み取り・対象の利用者・手の直し・変更時メモを空にして、最初からやり直せるようにする
 $('clearBtn').addEventListener('click', function () {
   resetWork();
   $('inputText').focus();
   toast('入力を消しました');
 });
-$('photoClear').addEventListener('click', function () { S.image = null; S.sampleId = ''; $('photoPrev').hidden = true; });
+$('photoClear').addEventListener('click', function () { S.image = null; S.sampleId = ''; $('photoPrev').hidden = true; updateFlow(); });
 
 // AIに読み取ってもらう ／ AIに直してもらう（同じボタン。一度読み取った後は、上の欄の文を「直し」として送る）
 $('interpretBtn').addEventListener('click', function () {
@@ -1192,6 +1215,42 @@ $('refreshBtn').addEventListener('click', refresh);
 function startPolling() { stopPolling(); S.polling = setInterval(function () { if (!document.hidden && S.page === 'kitchen') refresh(); }, POLL_SECONDS * 1000); }
 function stopPolling() { if (S.polling) clearInterval(S.polling); S.polling = null; }
 
+// 依頼の「詳細を見る」：その方の予定表の形で、変わる所（前→後）を色で見せる。見込みは GAS が今の予定から作る
+S.details = {};   // 依頼番号 → { open: 開いているか, preview: 見込み, error: 失敗の文 }
+function detailButton(r, box) {
+  var id = r['依頼番号'];
+  var st = S.details[id] || (S.details[id] = { open: false, preview: null, error: '' });
+  var b = el('button', { class: 'btn sec', text: st.open ? '詳細を閉じる' : '詳細を見る', onclick: function () {
+    st.open = !st.open; b.textContent = st.open ? '詳細を閉じる' : '詳細を見る';
+    drawDetail(r, box);
+  } });
+  return b;
+}
+function drawDetail(r, box) {
+  var id = r['依頼番号'], st = S.details[id];
+  box.innerHTML = '';
+  if (!st || !st.open) { box.hidden = true; return; }
+  box.hidden = false;
+  if (st.error) { box.appendChild(el('div', { class: 'err', text: '詳細を出せませんでした：' + st.error })); return; }
+  if (!st.preview) {
+    box.appendChild(el('div', { class: 'small', text: '予定表を作っています…' }));
+    if (!st.loading) {
+      st.loading = true;
+      api('previewRequest', { requestId: id }).then(function (d) { st.preview = d; st.error = ''; })
+        .catch(function (err) { st.error = err.message; })
+        .then(function () { st.loading = false; drawDetail(r, box); });
+    }
+    return;
+  }
+  var pv = st.preview.preview, u = userById(r['利用者ID']);
+  var ul = el('ul', {});
+  st.preview.operations.forEach(function (op) { ul.appendChild(el('li', { text: opText(op) })); });
+  box.appendChild(ul);
+  if (!pv.changed.length) box.appendChild(el('div', { class: 'note', text: '今の予定に当てても、変わる所はありません。' }));
+  box.appendChild(el('div', { class: 'small', text: (u ? u['氏名'] + '様' : r['利用者ID']) + 'の予定（色の付いた所が、確認すると変わります）' }));
+  box.appendChild(el('div', { class: 'tbl-wrap' }, [scheduleTable(pv.before, pv.after, pv.changed, PLAN_DAYS)]));
+}
+
 function renderKitchen() {
   var reqs = S.data.requests;
   var list = $('reqList'); list.innerHTML = '';
@@ -1200,10 +1259,12 @@ function renderKitchen() {
   waiting.forEach(function (r) {
     var u = userById(r['利用者ID']);
     var isNew = !S.seenRequests[r['依頼番号']];
+    var detail = el('div', { class: 'req-detail' });
     var btn = el('button', { class: 'btn', text: '確認しました', onclick: function () {
       btn.disabled = true;
       api('confirmRequest', { requestId: r['依頼番号'] }).then(function (d) {
         S.lastChanged = d.changes.map(function (c) { return c.date + '#' + c.meal; });
+        Object.keys(S.details).forEach(function (k) { S.details[k].preview = null; });   // 予定が変わったので、詳細の見込みは取り直す
         applyState(d); toast(r['依頼番号'] + ' を反映しました');
       }).catch(function (err) { toast(err.message); btn.disabled = false; });
     } });
@@ -1213,8 +1274,10 @@ function renderKitchen() {
         r['締め切りを過ぎているか'] === 'はい' ? el('span', { class: 'badge late', text: '締め切りを過ぎています' }) : null]),
       el('div', { class: 'pre', text: r['説明'] }),
       el('div', { class: 'meta', text: r['依頼番号'] + '／' + r['受付日時'].slice(5, 16) + '／' + r['入力の方法'] + '／入れた人：' + (r['入れた人'] || '―') }),
-      el('div', { class: 'row', style: 'margin-top:6px' }, [btn])
+      el('div', { class: 'row', style: 'margin-top:6px' }, [btn, detailButton(r, detail)]),
+      detail
     ]));
+    drawDetail(r, detail);
   });
   reqs.forEach(function (r) { S.seenRequests[r['依頼番号']] = true; });
   var done = $('doneList'); done.innerHTML = '';
