@@ -234,6 +234,7 @@
   input[type=text], input[type=password] { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 48px; width: 100%; background: var(--bg); }
   #admin .tbl-wrap table { min-width: 720px; }
   .adm-form > * { min-width: 0; }
+  @media (max-width: 640px) { #admin .tbl-wrap th, #admin .tbl-wrap td { white-space: nowrap; } #admin .tbl-wrap table { min-width: 0; } }
   @media (max-width: 640px) { .adm-form { grid-template-columns: 1fr; gap: 2px 0; } .adm-form > span, .adm-form > label { margin-top: 6px; font-weight: 700; } }
   @media (max-width: 640px) { header { position: static; } main { padding: 10px 10px 40px; } .bar h1 { font-size: 17px; } .explain { font-size: 17px; } #micBtn { font-size: 19px; min-height: 72px; } }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
@@ -341,7 +342,7 @@
   <section class="page" id="glossary">
     <div class="card">
       <h2>用語集</h2>
-      <p class="sub">拠点ごとの言い方です（上で選んだ拠点の分）。AIが知らない言葉を聞き返し、答えが「候補」になります。拠点の管理者が承認した言葉だけが、次からAIに渡ります。</p>
+      <p class="sub">拠点ごとの言い方です（<span id="glossaryScope">上で選んだ拠点の分</span>）。AIが知らない言葉を聞き返し、答えが「候補」になります。拠点の管理者が承認した言葉だけが、次からAIに渡ります。</p>
       <div id="glossaryList"></div>
     </div>
   </section>
@@ -1569,6 +1570,7 @@ $('schedUser').addEventListener('change', renderSchedUser);
 function renderGlossary() {
   var box = $('glossaryList'); box.innerHTML = '';
   var allKitchen = !scopes().care.length;   // 厨房だけの方は、受け持つ拠点すべての用語集
+  $('glossaryScope').textContent = allKitchen ? '受け持つ拠点すべての分' : (scopes().care.length > 1 ? '上で選んだ拠点の分' : siteName(S.siteId) + 'の分');
   var g = (allKitchen ? S.kdata : S.data).glossary.filter(function (x) { return x['状態'] !== '取り消し'; });
   if (!g.length) { box.appendChild(el('p', { class: 'sub', text: 'まだ言葉はありません。介護職員の画面で、AIが知らない言葉を聞き返すと、ここに候補が入ります。' })); return; }
   g.forEach(function (t) {
