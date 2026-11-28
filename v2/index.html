@@ -46,6 +46,20 @@
   .adm-form { display: grid; grid-template-columns: 9em 1fr; gap: 6px 10px; align-items: center; margin: 8px 0; }
   .adm-form input[type=text], .adm-form select { min-height: 40px; }
   .checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  /* プルダウン＋検索（件数が増えるもの用） */
+  .pk-box { position: relative; }
+  .pk-box input[type=text] { width: 100%; min-height: 40px; }
+  .pk-list { position: absolute; left: 0; right: 0; top: 44px; z-index: 20; max-height: 260px; overflow-y: auto; background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px; display: none; }
+  .pk-box.open .pk-list { display: block; }
+  .pk-opt { padding: 8px 12px; cursor: pointer; }
+  .pk-opt.hi, .pk-opt:hover { background: var(--accent-soft); }
+  .pk-opt .small { margin-left: 8px; }
+  .pk-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .pk-tags:empty { display: none; }
+  .pk-tag { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--accent); color: var(--ink); border-radius: 999px; padding: 0 2px 0 12px; font-size: 14px; }
+  .pk-tag button { border: 0; background: transparent; color: var(--muted); font-size: 16px; min-width: 32px; min-height: 32px; border-radius: 999px; }
+  .pk-tag button:hover { color: var(--danger); }
+  .pk-none { padding: 8px 12px; color: var(--muted); font-size: 14px; }
   .temp-pw { font-family: ui-monospace, Consolas, monospace; font-size: 18px; font-weight: 700; letter-spacing: .05em; }
   /* ログインして状態を読み込むまでは、本体・タブ・拠点の欄を隠す */
   body:not(.ready) main, body:not(.ready) #tabs, body:not(.ready) #siteBox, body:not(.ready) #meName { visibility: hidden; }
@@ -190,7 +204,7 @@
   .floors { display: flex; flex-wrap: wrap; gap: 6px; }
   .floors button { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 14px; font-size: 13px; font-weight: 700; min-height: 36px; }
   .floors button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-  .picker-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+  .pk-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
   .cand { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 14px; text-align: left; min-height: 56px; }
   .cand:hover { border-color: var(--accent); }
   .cand.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -339,14 +353,15 @@
         <label for="accId">ログインID</label><input type="text" id="accId" placeholder="英小文字・数字・-（例：a-kaigo2）" autocomplete="off">
         <label for="accName">名前</label><input type="text" id="accName" placeholder="例：拠点Aの介護職員（架空）" autocomplete="off">
         <span>役割</span><div class="checks" id="accRoles"></div>
-        <span>拠点</span><div class="checks" id="accSites"></div>
-        <span>厨房</span><div class="checks" id="accKitchens"></div>
+        <span class="accSiteRow">拠点</span><div class="accSiteRow" id="accSites"></div>
+        <span class="accKitchenRow">厨房</span><div class="accKitchenRow" id="accKitchens"></div>
+        <span>見える範囲</span><div class="small" id="accDerived"></div>
       </div>
       <div class="row"><button class="btn" id="accSave">足す</button><button class="btn sec" id="accClear">新しく足す形に戻す</button></div>
       <div id="accResult"></div>
       <details style="margin-top:14px"><summary>アカウントをまとめて足す（表から貼り付け）</summary>
-        <p class="sub">1行に1人。「ID,名前,役割,拠点,厨房」の順にカンマで区切ります。役割・拠点・厨房が2つ以上なら「・」でつなぎます。<br>例：<code>a-kaigo3,拠点Aの介護職員3,介護職員,A,</code>／<code>k1-chubo2,第1厨房の職員2,厨房,,K1</code></p>
-        <textarea id="bulkAcc" rows="5" placeholder="a-kaigo3,拠点Aの介護職員3,介護職員,A,"></textarea>
+        <p class="sub">1行に1人。「ID,名前,役割,拠点か厨房」の順にカンマで区切ります。4つ目は、介護職員・拠点の管理者のある方は拠点（厨房は拠点から決まります）、厨房だけの方は厨房、全体の管理者だけの方は空にします。2つ以上なら「・」でつなぎます。<br>例：<code>a-kaigo3,拠点Aの介護職員3,介護職員,A</code>／<code>k1-chubo2,第1厨房の職員2,厨房,K1</code></p>
+        <textarea id="bulkAcc" rows="5" placeholder="a-kaigo3,拠点Aの介護職員3,介護職員,A"></textarea>
         <div class="row" style="margin-top:6px"><button class="btn sec" id="bulkAccRun">まとめて足す</button></div>
         <div id="bulkAccResult"></div>
       </details>
@@ -481,7 +496,7 @@
     <input type="text" id="pickerSearch" placeholder="名前・読みで絞り込む（例：さとう）" autocomplete="off">
     <div class="floors" id="pickerFloors"></div>
     <div class="small" id="pickerCount"></div>
-    <div class="picker-list" id="pickerList"></div>
+    <div class="pk-list" id="pickerList"></div>
   </div>
   <button class="link" id="pickerShowAll" hidden>ほかの人を探す（全員から選ぶ）</button>
 </aside>
@@ -1595,10 +1610,12 @@ function renderAdminStatic() {
   // 役割・拠点・厨房の選び方（拠点の管理者は、自分の拠点の介護職員だけ）
   var admin = S.all.me.admin;
   checks('accRoles', admin ? ['介護職員', '厨房', '拠点の管理者', '全体の管理者'] : ['介護職員'], function (x) { return x; });
-  checks('accSites', ids, siteName);
-  checks('accKitchens', admin ? S.all.kitchens.map(function (k) { return k['厨房ID']; }) : [], function (id) {
-    var k = S.all.kitchens.find(function (x) { return x['厨房ID'] === id; }); return k ? k['名前'] : id;
-  });
+  // 拠点・厨房は件数が増えるので、チェックボックスでなくプルダウン＋検索で選ぶ
+  picker('accSites', ids.map(function (id) { var s = siteById(id); return { id: id, text: siteName(id), sub: id + (s ? '／' + kitchenName(s['厨房ID']) : '') }; }),
+    { placeholder: '拠点の名前や ID で探す', tag: function (id) { var s = siteById(id); return siteName(id) + (s ? '（' + kitchenName(s['厨房ID']) + '）' : ''); }, onchange: accFormView });
+  picker('accKitchens', admin ? S.all.kitchens.map(function (k) { return { id: k['厨房ID'], text: k['名前'], sub: k['厨房ID'] }; }) : [],
+    { placeholder: '厨房の名前や ID で探す', tag: kitchenName, onchange: accFormView });
+  accFormView();
   $('accNote').textContent = admin ? 'すべてのアカウントを扱えます。' : '拠点の管理者は、自分の拠点の介護職員のアカウントだけを扱えます（厨房・管理者のアカウントは全体の管理者へ）。';
   renderUserList(); renderUserForm(null); renderDeadlines(); renderStaff(); clearStaffForm(); renderSiteInfo();
 }
@@ -1610,6 +1627,86 @@ function checks(boxId, values, label) {
     box.appendChild(el('label', {}, [cb, ' ' + label(v)]));
   });
 }
+// ---------- プルダウン＋検索（件数が増えるもの用。選んだものは × で外せるタグで並べる） ----------
+var PICK = {};
+function picker(boxId, items, opt) {
+  var keep = PICK[boxId] ? PICK[boxId].sel.filter(function (v) { return items.some(function (it) { return it.id === v; }); }) : [];
+  var box = $(boxId); box.innerHTML = ''; box.classList.add('pk-box');
+  var input = el('input', { type: 'text', placeholder: opt.placeholder || '名前や ID で探す', autocomplete: 'off', 'aria-label': opt.placeholder || '探す' });
+  var list = el('div', { class: 'pk-list', role: 'listbox' }), tags = el('div', { class: 'pk-tags' });
+  var P = PICK[boxId] = { items: items, sel: keep, hi: 0, shown: [] };
+  box.appendChild(input); box.appendChild(list); box.appendChild(tags);
+  if (!items.length) { input.disabled = true; input.placeholder = '（選べるものはありません）'; }
+  var changed = opt.onchange || function () {};
+  function norm(x) { return toHiragana(String(x || '').toLowerCase().replace(/[\s　]+/g, '')); }
+  function draw() {
+    var q = norm(input.value);
+    P.shown = items.filter(function (it) { return P.sel.indexOf(it.id) < 0 && (!q || norm(it.text).indexOf(q) >= 0 || norm(it.id).indexOf(q) >= 0 || norm(it.sub).indexOf(q) >= 0); });
+    if (P.hi >= P.shown.length) P.hi = 0;
+    list.innerHTML = '';
+    if (!P.shown.length) list.appendChild(el('div', { class: 'pk-none', text: q ? '当てはまるものがありません' : 'すべて選んであります' }));
+    P.shown.forEach(function (it, i) {
+      list.appendChild(el('div', { class: 'pk-opt' + (i === P.hi ? ' hi' : ''), role: 'option', 'data-id': it.id,
+        onmousedown: function (ev) { ev.preventDefault(); add(it.id); } }, [it.text, it.sub ? el('span', { class: 'small', text: it.sub }) : null]));
+    });
+  }
+  function add(id) { if (P.sel.indexOf(id) < 0) P.sel.push(id); input.value = ''; P.hi = 0; drawTags(); draw(); changed(); }
+  function drawTags() {
+    tags.innerHTML = '';
+    P.sel.forEach(function (id) {
+      var label = (opt.tag || String)(id);
+      tags.appendChild(el('span', { class: 'pk-tag', 'data-id': id }, [label,
+        el('button', { type: 'button', text: '×', title: '外す', 'aria-label': label + 'を外す', onclick: function () {
+          P.sel = P.sel.filter(function (x) { return x !== id; }); drawTags(); draw(); changed(); } })]));
+    });
+  }
+  P.drawTags = drawTags;
+  input.addEventListener('focus', function () { box.classList.add('open'); draw(); });
+  input.addEventListener('input', function () { P.hi = 0; box.classList.add('open'); draw(); });
+  input.addEventListener('blur', function () { box.classList.remove('open'); });
+  input.addEventListener('keydown', function (ev) {
+    if (ev.key === 'ArrowDown') { P.hi = Math.min(P.hi + 1, P.shown.length - 1); draw(); ev.preventDefault(); }
+    else if (ev.key === 'ArrowUp') { P.hi = Math.max(P.hi - 1, 0); draw(); ev.preventDefault(); }
+    else if (ev.key === 'Enter') { if (P.shown[P.hi]) add(P.shown[P.hi].id); ev.preventDefault(); }
+    else if (ev.key === 'Escape') { input.blur(); }
+  });
+  drawTags();
+}
+function picked(boxId) { return PICK[boxId] ? PICK[boxId].sel.slice() : []; }
+function setPicked(boxId, values) {
+  var P = PICK[boxId]; if (!P) return;
+  P.sel = values.filter(function (v) { return P.items.some(function (it) { return it.id === v; }); }); P.drawTags();
+}
+function kitchenName(id) { var k = ((S.all && S.all.kitchens) || []).find(function (x) { return x['厨房ID'] === id; }); return k ? k['名前'] : (id || '―'); }
+function sitesOfKitchens(kids) { return ((S.all && S.all.sites) || []).filter(function (s) { return kids.indexOf(s['厨房ID']) >= 0; }).map(function (s) { return s['拠点ID']; }); }
+function uniq(a) { return a.filter(function (x, i) { return x && a.indexOf(x) === i; }); }
+function kitchensOfSites(sids) { return uniq(sids.map(function (id) { var s = siteById(id); return s ? s['厨房ID'] : ''; })); }
+// 付ける欄は、役割に合わせて拠点か厨房のどちらか1つ。兼務の厨房や、見える拠点は紐づき（拠点の設定）から決まるので表示だけ
+function accFormView() {
+  var roles = checked('accRoles');
+  var siteRole = roles.indexOf('介護職員') >= 0 || roles.indexOf('拠点の管理者') >= 0;
+  var kitchenOnly = !siteRole && roles.indexOf('厨房') >= 0;
+  document.querySelectorAll('.accSiteRow').forEach(function (e) { e.style.display = siteRole ? '' : 'none'; });
+  document.querySelectorAll('.accKitchenRow').forEach(function (e) { e.style.display = kitchenOnly ? '' : 'none'; });
+  var out;
+  if (roles.indexOf('全体の管理者') >= 0) out = 'すべての拠点（全体の管理者）';
+  else if (siteRole) {
+    var ss = picked('accSites');
+    if (!ss.length) out = '拠点を選んでください';
+    else {
+      out = '拠点：' + ss.map(siteName).join('、');
+      if (roles.indexOf('厨房') >= 0) {
+        var ks = kitchensOfSites(ss);
+        out += '／厨房の仕事：' + ks.map(kitchenName).join('、') + '（拠点から決まります。受け持つ拠点：' + sitesOfKitchens(ks).map(siteName).join('、') + '）';
+      }
+    }
+  } else if (kitchenOnly) {
+    var kk = picked('accKitchens');
+    out = kk.length ? '厨房：' + kk.map(kitchenName).join('、') + '／見える拠点：' + (sitesOfKitchens(kk).map(siteName).join('、') || 'まだ受け持つ拠点がありません') : '厨房を選んでください';
+  } else out = '役割を選んでください';
+  $('accDerived').textContent = out;
+}
+$('accRoles').addEventListener('change', accFormView);
 function checked(boxId) { return Array.prototype.slice.call(document.querySelectorAll('#' + boxId + ' input:checked')).map(function (c) { return c.value; }); }
 function setChecks(boxId, values) { document.querySelectorAll('#' + boxId + ' input').forEach(function (c) { c.checked = values.indexOf(c.value) >= 0; }); }
 
@@ -1620,6 +1717,11 @@ function loadAccounts() {
     .catch(function (err) { $('accList').innerHTML = ''; $('accList').appendChild(el('div', { class: 'err', text: err.message })); });
 }
 function splitList(s) { return String(s || '').split(/[、,]/).map(function (x) { return x.trim(); }).filter(Boolean); }
+function accKitchenText(a) {
+  if (splitList(a['役割']).indexOf('厨房') < 0) return '―';
+  if (a['厨房ID']) return splitList(a['厨房ID']).map(kitchenName).join('、');
+  return kitchensOfSites(splitList(a['拠点ID'])).map(kitchenName).join('、') + '（拠点から）';
+}
 function renderAccounts() {
   var tbl = el('table', {});
   tbl.appendChild(el('tr', {}, ['ID', '名前', '役割', '拠点', '厨房', '状態', '最後のログイン', ''].map(function (h) { return el('th', { text: h }); })));
@@ -1631,7 +1733,7 @@ function renderAccounts() {
     if (a['ログインID'] === S.all.me.id) { stop.disabled = true; stop.title = '自分の ID は止められません'; }
     tbl.appendChild(el('tr', {}, [
       el('td', { class: 'd', text: a['ログインID'] }), el('td', { text: a['名前'] }), el('td', { text: a['役割'] }),
-      el('td', { text: splitList(a['拠点ID']).map(siteName).join('、') || '―' }), el('td', { text: a['厨房ID'] || '―' }),
+      el('td', { text: splitList(a['拠点ID']).map(siteName).join('、') || '―' }), el('td', { text: accKitchenText(a) }),
       el('td', { class: 'state', text: state }), el('td', { text: (a['最後のログイン'] || '―').slice(5, 16) }),
       el('td', {}, [el('div', { class: 'row' }, [edit, reset, stop])])
     ]));
@@ -1642,14 +1744,14 @@ function editAccount(a) {
   S.adm.editing = a['ログインID'];
   $('accFormTitle').textContent = 'アカウントを直す：' + a['ログインID'];
   $('accId').value = a['ログインID']; $('accId').disabled = true; $('accName').value = a['名前'];
-  setChecks('accRoles', splitList(a['役割'])); setChecks('accSites', splitList(a['拠点ID'])); setChecks('accKitchens', splitList(a['厨房ID']));
+  setChecks('accRoles', splitList(a['役割'])); setPicked('accSites', splitList(a['拠点ID'])); setPicked('accKitchens', splitList(a['厨房ID'])); accFormView();
   $('accSave').textContent = '直す'; $('accResult').innerHTML = '';
   $('accFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function clearAccountForm() {
   S.adm.editing = ''; $('accFormTitle').textContent = 'アカウントを足す';
   $('accId').value = ''; $('accId').disabled = false; $('accName').value = '';
-  setChecks('accRoles', []); setChecks('accSites', []); setChecks('accKitchens', []);
+  setChecks('accRoles', []); setPicked('accSites', []); setPicked('accKitchens', []); accFormView();
   $('accSave').textContent = '足す';
 }
 $('accClear').addEventListener('click', function () { clearAccountForm(); $('accResult').innerHTML = ''; });
@@ -1663,7 +1765,10 @@ function showTemp(id, temp) {
   ]));
 }
 $('accSave').addEventListener('click', function () {
-  var acc = { 'ログインID': $('accId').value.trim(), '名前': $('accName').value.trim(), '役割': checked('accRoles').join('、'), '拠点ID': checked('accSites').join('、'), '厨房ID': checked('accKitchens').join('、') };
+  var roles = checked('accRoles');
+  var siteRole = roles.indexOf('介護職員') >= 0 || roles.indexOf('拠点の管理者') >= 0, kitchenOnly = !siteRole && roles.indexOf('厨房') >= 0;
+  var acc = { 'ログインID': $('accId').value.trim(), '名前': $('accName').value.trim(), '役割': roles.join('、'),
+    '拠点ID': siteRole ? picked('accSites').join('、') : '', '厨房ID': kitchenOnly ? picked('accKitchens').join('、') : '' };
   var cur = S.adm.accounts.find(function (a) { return a['ログインID'] === S.adm.editing; });
   if (cur) acc['止めている'] = cur['止めている'];
   $('accSave').disabled = true;
@@ -1786,9 +1891,12 @@ function bulkRun(textId, resultId, runId, toCall, describe) {
 }
 $('bulkAccRun').addEventListener('click', function () {
   bulkRun('bulkAcc', 'bulkAccResult', 'bulkAccRun', function (c) {
-    if (c.length < 3) throw new Error('「ID,名前,役割,拠点,厨房」の形になっていません');
+    if (c.length < 3 || c.length > 4) throw new Error('「ID,名前,役割,拠点か厨房」の形になっていません');
     var j = function (x) { return (x || '').split(/[・\/]/).map(function (y) { return y.trim(); }).filter(Boolean).join('、'); };
-    return ['saveAccount', { mode: 'new', account: { 'ログインID': c[0], '名前': c[1], '役割': j(c[2]), '拠点ID': j(c[3]), '厨房ID': j(c[4]) } }];
+    var roles = j(c[2]).split('、'), siteRole = roles.indexOf('介護職員') >= 0 || roles.indexOf('拠点の管理者') >= 0;
+    var kitchenOnly = !siteRole && roles.indexOf('厨房') >= 0;
+    // 4つ目は、厨房だけの方なら厨房、それ以外は拠点として送る（合わないものは GAS が理由を付けて断る）
+    return ['saveAccount', { mode: 'new', account: { 'ログインID': c[0], '名前': c[1], '役割': j(c[2]), '拠点ID': kitchenOnly ? '' : j(c[3]), '厨房ID': kitchenOnly ? j(c[3]) : '' } }];
   }, function (d) { return { text: d.tempPassword, mono: true, copy: d.saved + '\t' + d.tempPassword }; }).then(loadAccounts);
 });
 $('bulkUserRun').addEventListener('click', function () {
