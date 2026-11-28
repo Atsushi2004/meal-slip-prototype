@@ -204,7 +204,7 @@
   .floors { display: flex; flex-wrap: wrap; gap: 6px; }
   .floors button { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 14px; font-size: 13px; font-weight: 700; min-height: 36px; }
   .floors button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-  .pk-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+  .picker-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
   .cand { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 14px; text-align: left; min-height: 56px; }
   .cand:hover { border-color: var(--accent); }
   .cand.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -496,7 +496,7 @@
     <input type="text" id="pickerSearch" placeholder="名前・読みで絞り込む（例：さとう）" autocomplete="off">
     <div class="floors" id="pickerFloors"></div>
     <div class="small" id="pickerCount"></div>
-    <div class="pk-list" id="pickerList"></div>
+    <div class="picker-list" id="pickerList"></div>
   </div>
   <button class="link" id="pickerShowAll" hidden>ほかの人を探す（全員から選ぶ）</button>
 </aside>
@@ -512,7 +512,7 @@ var POLL_SECONDS = 30;
 
 var S = {                       // 画面の状態
   token: '', all: null, data: null, kdata: null, siteId: '', kFilter: '', userId: '', image: null, sampleId: '', inputMethod: '文',
-  draftId: '', result: null, lastChanged: [], polling: null, page: 'care', seenRequests: {}
+  draftId: '', result: null, lastChanged: [], lastChangedUser: '', polling: null, page: 'care', seenRequests: {}
 };
 
 // ---------- 小さな道具 ----------
@@ -544,6 +544,7 @@ function api(action, payload) {
     .then(function (res) { if (!res.ok) throw new Error('GAS の呼び出しに失敗しました（HTTP ' + res.status + '）'); return res.json(); })
     .then(function (data) {
       if (data.version && data.version !== APP_VERSION) throw new Error('画面（' + APP_VERSION + '）と裏側（' + data.version + '）の版が違います。読み込み直してください');
+      if (data.ok && data.newToken) { S.token = data.newToken; store('meal-slip-v2-token', data.newToken); }
       if (!data.ok) {
         if (data.relogin) { S.token = ''; store('meal-slip-v2-token', null); askLogin(data.error); }
         else if (data.mustChange) askChange(true);
@@ -1494,7 +1495,7 @@ function renderKitchen() {
     var btn = el('button', { class: 'btn', text: '確認しました', onclick: function () {
       btn.disabled = true;
       api('confirmRequest', { requestId: r['依頼番号'] }).then(function (d) {
-        S.lastChanged = d.changes.map(function (c) { return c.date + '#' + c.meal; });
+        S.lastChanged = d.changes.map(function (c) { return c.date + '#' + c.meal; }); S.lastChangedUser = r['利用者ID'];
         Object.keys(S.details).forEach(function (k) { S.details[k].preview = null; });   // 予定が変わったので、詳細の見込みは取り直す
         applyState(d); toast(r['依頼番号'] + ' を反映しました');
       }).catch(function (err) { toast(err.message); btn.disabled = false; });
@@ -1549,7 +1550,7 @@ function renderSchedUser() {
   var u = userById(cur);
   var box = $('schedTable'); box.innerHTML = '';
   box.appendChild(el('p', { class: 'sub', text: '主食：' + u['主食'] + '（' + u['主食の量'] + '）／副食：' + u['副食'] + '／とろみ：' + u['とろみ'] + '／おやつ：' + u['おやつ'] + '（○＝食べる、×＝食べない。× にマウスを当てると理由）' }));
-  box.appendChild(scheduleTable(rows, null, S.lastChanged.length ? S.lastChanged : null));
+  box.appendChild(scheduleTable(rows, null, S.lastChanged.length && cur === S.lastChangedUser ? S.lastChanged : null));
   // 形態や量が「いつも」と違う日を書き出す
   var diffs = rows.filter(function (r) { return r['主食'] !== u['主食'] || r['主食の量'] !== u['主食の量'] || r['副食'] !== u['副食'] || r['おやつ'] !== u['おやつ']; });
   if (diffs.length) box.appendChild(el('p', { class: 'sub', text: '形態や量が変わっている食事：' + diffs.slice(0, 8).map(function (r) { return md(r['日付']) + r['食事'] + '（' + r['主食'] + '・' + r['主食の量'] + '・' + r['副食'] + '・' + r['おやつ'] + '）'; }).join('、') + (diffs.length > 8 ? ' ほか' : '') }));
